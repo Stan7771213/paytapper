@@ -7,7 +7,7 @@ export default function Home() {
         </h1>
 
         <p className="text-lg md:text-xl mb-6 text-slate-300">
-          Fast and effortless tipping for guides and service professionals.
+          Fast and effortless tipping for guides & service professionals.
         </p>
 
         <p className="text-sm text-slate-400 mb-8">
