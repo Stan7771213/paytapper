@@ -1,145 +1,121 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 
-const AMOUNTS = [10, 20, 30];
+const TIP_PRESETS_EUR = [5, 10, 20, 50];
 
 export default function TipPage() {
-  const [loadingAmount, setLoadingAmount] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const guideIdFromQuery = searchParams.get("guideId");
+  const guideId = guideIdFromQuery || "unknown";
 
-  async function handleTip(amount: number) {
+  const [customAmount, setCustomAmount] = useState<string>("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  async function startCheckout(amountInEuro: number) {
     try {
-      setError(null);
-      setLoadingAmount(amount);
+      setIsLoading(true);
+      setErrorMsg(null);
 
-      const res = await fetch("/api/checkout", {
+      const amountInCents = Math.round(amountInEuro * 100);
+
+      const response = await fetch("/api/checkout", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ amount: amount * 100 }), // евро → центы
+        body: JSON.stringify({
+          amount: amountInCents,
+          guideId,
+        }),
       });
 
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Payment error");
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || "Failed to create checkout session");
       }
 
-      const data = await res.json();
+      const data = await response.json();
 
-      if (data.url) {
-        window.location.href = data.url; // переход в Stripe Checkout
-      } else {
-        throw new Error("No checkout URL");
+      if (!data?.url) {
+        throw new Error("Missing checkout URL in response");
       }
+
+      window.location.href = data.url;
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "Something went wrong");
-      setLoadingAmount(null);
+      setErrorMsg(err?.message || "Something went wrong");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  function handleCustomSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const value = parseFloat(customAmount.replace(",", "."));
+    if (!isNaN(value) && value > 0) {
+      startCheckout(value);
+    } else {
+      setErrorMsg("Please enter a valid amount");
     }
   }
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "#020617",
-        color: "white",
-        padding: "1.5rem",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: "420px",
-          width: "100%",
-          textAlign: "center",
-          backgroundColor: "#020817",
-          borderRadius: "1.5rem",
-          padding: "2rem",
-          boxShadow: "0 10px 40px rgba(0,0,0,0.5)",
-        }}
-      >
-        <h1 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: "0.75rem" }}>
-          Leave a tip
+    <main className="min-h-screen flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-md rounded-2xl shadow-lg p-6 flex flex-col gap-4">
+        <h1 className="text-2xl font-bold text-center">
+          Leave a tip for your guide
         </h1>
-        <p style={{ opacity: 0.75, fontSize: "0.95rem", marginBottom: "1.5rem" }}>
-          Choose the amount and pay with Apple Pay, Google Pay or a bank card.
+
+        <p className="text-center text-sm text-gray-600">
+          Guide ID: <span className="font-mono">{guideId}</span>
         </p>
 
-        <div
-          style={{
-            display: "flex",
-            gap: "0.75rem",
-            justifyContent: "center",
-            marginBottom: "1rem",
-          }}
-        >
-          {AMOUNTS.map((amount) => (
+        <div className="grid grid-cols-2 gap-3 mt-2">
+          {TIP_PRESETS_EUR.map((amount) => (
             <button
               key={amount}
-              onClick={() => handleTip(amount)}
-              disabled={loadingAmount !== null}
-              style={{
-                padding: "0.75rem 1.25rem",
-                borderRadius: "999px",
-                border: "none",
-                cursor: loadingAmount ? "wait" : "pointer",
-                fontWeight: 600,
-                backgroundColor:
-                  loadingAmount === amount ? "#16a34a" : "#22c55e",
-                color: "white",
-                fontSize: "0.95rem",
-              }}
+              disabled={isLoading}
+              onClick={() => startCheckout(amount)}
+              className="py-3 rounded-xl border text-lg font-semibold hover:scale-[1.02] active:scale-[0.98] transition disabled:opacity-60"
             >
-              {loadingAmount === amount ? "Redirecting..." : `${amount} €`}
+              {amount} €
             </button>
           ))}
         </div>
 
-        <button
-          onClick={() => handleTip(10)}
-          disabled={loadingAmount !== null}
-          style={{
-            marginTop: "0.5rem",
-            padding: "0.65rem 1rem",
-            borderRadius: "0.75rem",
-            border: "1px solid rgba(148,163,184,0.5)",
-            background: "transparent",
-            color: "white",
-            cursor: loadingAmount ? "wait" : "pointer",
-            fontSize: "0.9rem",
-          }}
-        >
-          Custom tip coming soon
-        </button>
-
-        {error && (
-          <p
-            style={{
-              marginTop: "1rem",
-              color: "#f97373",
-              fontSize: "0.9rem",
-            }}
+        <form onSubmit={handleCustomSubmit} className="mt-4 flex gap-2">
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="Custom amount"
+            value={customAmount}
+            onChange={(e) => setCustomAmount(e.target.value)}
+            className="flex-1 rounded-xl border px-3 py-2 outline-none"
+          />
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="px-4 py-2 rounded-xl border font-semibold hover:scale-[1.02] active:scale-[0.98] transition disabled:opacity-60"
           >
-            {error}
+            OK
+          </button>
+        </form>
+
+        {isLoading && (
+          <p className="text-center text-sm text-gray-500">
+            Redirecting to Stripe…
           </p>
         )}
 
-        <p
-          style={{
-            marginTop: "1.25rem",
-            fontSize: "0.75rem",
-            opacity: 0.6,
-          }}
-        >
-          Powered by PayTapper & Stripe (test mode).
-        </p>
+        {errorMsg && (
+          <p className="text-center text-sm text-red-600">{errorMsg}</p>
+        )}
       </div>
-    </div>
+    </main>
   );
 }
 
