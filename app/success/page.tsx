@@ -11,7 +11,7 @@ const stripe = new Stripe(stripeSecretKey, {
 });
 
 type SuccessPageProps = {
-  // В новых версиях Next.js searchParams — это Promise
+  // В новых версиях Next searchParams — это Promise
   searchParams: Promise<{
     [key: string]: string | string[] | undefined;
   }>;
@@ -37,9 +37,12 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
     );
   }
 
-  let amountTotal: number | null = null;
+  let amountTotalCents: number | null = null;
   let currency: string | null = null;
   let guideId: string | null = null;
+  let platformFeePercent: number | null = null;
+  let platformFeeCents: number | null = null;
+  let guideAmountCents: number | null = null;
   let errorMessage: string | null = null;
 
   try {
@@ -47,31 +50,69 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
       expand: ["payment_intent"],
     });
 
-    amountTotal = (session.amount_total ?? null) as number | null;
+    amountTotalCents =
+      typeof session.amount_total === "number" ? session.amount_total : null;
     currency = (session.currency ?? null) as string | null;
 
-    const sessionGuideId =
-      (session.metadata && (session.metadata as any).guideId) || null;
+    // metadata из сессии
+    const sessionMeta =
+      (session.metadata as Record<string, string | undefined>) || {};
 
-    let piGuideId: string | null = null;
-
+    // metadata из payment_intent (если есть)
+    let piMeta: Record<string, string | undefined> = {};
     const paymentIntent = session.payment_intent;
 
     if (paymentIntent && typeof paymentIntent === "object") {
       const pi = paymentIntent as Stripe.PaymentIntent;
-      piGuideId =
-        (pi.metadata && (pi.metadata as any).guideId) || null;
+      piMeta = (pi.metadata as Record<string, string | undefined>) || {};
     }
 
-    guideId = sessionGuideId || piGuideId;
+    const mergedMeta: Record<string, string | undefined> = {
+      ...sessionMeta,
+      ...piMeta,
+    };
+
+    if (mergedMeta.guideId) {
+      guideId = mergedMeta.guideId;
+    }
+
+    if (mergedMeta.totalAmountCents) {
+      const v = parseInt(mergedMeta.totalAmountCents, 10);
+      if (!Number.isNaN(v)) amountTotalCents = v;
+    }
+
+    if (mergedMeta.platformFeePercent) {
+      const v = parseFloat(mergedMeta.platformFeePercent);
+      if (!Number.isNaN(v)) platformFeePercent = v;
+    }
+
+    if (mergedMeta.platformFeeCents) {
+      const v = parseInt(mergedMeta.platformFeeCents, 10);
+      if (!Number.isNaN(v)) platformFeeCents = v;
+    }
+
+    if (mergedMeta.guideAmountCents) {
+      const v = parseInt(mergedMeta.guideAmountCents, 10);
+      if (!Number.isNaN(v)) guideAmountCents = v;
+    }
   } catch (err: any) {
     console.error("Error loading checkout session:", err);
     errorMessage = err?.message || "Failed to load session details";
   }
 
-  const formattedAmount =
-    amountTotal && currency
-      ? `${(amountTotal / 100).toFixed(2)} ${currency.toUpperCase()}`
+  const formattedTotal =
+    amountTotalCents && currency
+      ? `${(amountTotalCents / 100).toFixed(2)} ${currency.toUpperCase()}`
+      : null;
+
+  const formattedGuideAmount =
+    guideAmountCents && currency
+      ? `${(guideAmountCents / 100).toFixed(2)} ${currency.toUpperCase()}`
+      : null;
+
+  const formattedPlatformFee =
+    platformFeeCents && currency
+      ? `${(platformFeeCents / 100).toFixed(2)} ${currency.toUpperCase()}`
       : null;
 
   return (
@@ -85,25 +126,38 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
           <p className="text-center text-sm text-red-600">{errorMessage}</p>
         ) : (
           <>
-            {formattedAmount && (
+            {formattedTotal && (
               <p className="text-center text-lg font-semibold">
-                Amount: {formattedAmount}
+                Amount: {formattedTotal}
+              </p>
+            )}
+
+            {formattedGuideAmount && (
+              <p className="text-center text-sm text-gray-700">
+                Guide will receive:{" "}
+                <span className="font-semibold">{formattedGuideAmount}</span>
+              </p>
+            )}
+
+            {formattedPlatformFee && platformFeePercent != null && (
+              <p className="text-center text-xs text-gray-500">
+                Platform fee ({platformFeePercent}%): {formattedPlatformFee}
               </p>
             )}
 
             {guideId && (
-              <p className="text-center text-sm text-gray-700">
+              <p className="text-center text-sm text-gray-700 mt-2">
                 Guide ID: <span className="font-mono">{guideId}</span>
               </p>
             )}
 
             {!guideId && (
-              <p className="text-center text-sm text-gray-500">
+              <p className="text-center text-sm text-gray-500 mt-2">
                 Guide ID was not found in the payment metadata.
               </p>
             )}
 
-            <p className="text-center text-sm text-gray-600 mt-2">
+            <p className="text-center text-sm text-gray-600 mt-4">
               You can close this page now.
             </p>
           </>
