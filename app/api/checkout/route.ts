@@ -14,6 +14,9 @@ const stripe = new Stripe(stripeSecretKey, {
 const baseUrl =
   process.env.NEXT_PUBLIC_BASE_URL || "https://www.paytapper.net";
 
+// платформа забирает 10%, гиду идёт 90%
+const PLATFORM_FEE_PERCENT = 10;
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -28,8 +31,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // metadata для Stripe (если guideId не передали, не добавляем вовсе)
-    const metadata = guideId ? { guideId } : undefined;
+    // amount приходит в центах (100 = 1.00 EUR)
+    const totalAmountCents = amount;
+
+    const platformFeeCents = Math.round(
+      (totalAmountCents * PLATFORM_FEE_PERCENT) / 100
+    );
+    const guideAmountCents = totalAmountCents - platformFeeCents;
+
+    // всё в metadata кладём строками (Stripe этого требует)
+    const metadata: Record<string, string> = {
+      totalAmountCents: String(totalAmountCents),
+      platformFeePercent: String(PLATFORM_FEE_PERCENT),
+      platformFeeCents: String(platformFeeCents),
+      guideAmountCents: String(guideAmountCents),
+    };
+
+    if (guideId) {
+      metadata.guideId = guideId;
+    }
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -41,18 +61,19 @@ export async function POST(req: NextRequest) {
             product_data: {
               name: "Tip for guide",
             },
-            // amount в центах, как и раньше
-            unit_amount: amount,
+            unit_amount: totalAmountCents,
           },
           quantity: 1,
         },
       ],
       success_url: `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/`,
-      // 1) кладём guideId в metadata самой сессии
+      // metadata у самой сессии
       metadata,
-      // 2) и дополнительно в metadata payment_intent
-      payment_intent_data: metadata ? { metadata } : undefined,
+      // и у payment_intent
+      payment_intent_data: {
+        metadata,
+      },
     });
 
     return NextResponse.json({ id: session.id, url: session.url });
