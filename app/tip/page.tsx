@@ -1,0 +1,145 @@
+"use client";
+
+import { useState } from "react";
+
+const AMOUNTS = [10, 20, 30];
+
+export default function TipPage() {
+  const [loadingAmount, setLoadingAmount] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleTip(amount: number) {
+    try {
+      setError(null);
+      setLoadingAmount(amount);
+
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ amount: amount * 100 }), // евро → центы
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Payment error");
+      }
+
+      const data = await res.json();
+
+      if (data.url) {
+        window.location.href = data.url; // переход в Stripe Checkout
+      } else {
+        throw new Error("No checkout URL");
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message || "Something went wrong");
+      setLoadingAmount(null);
+    }
+  }
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#020617",
+        color: "white",
+        padding: "1.5rem",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: "420px",
+          width: "100%",
+          textAlign: "center",
+          backgroundColor: "#020817",
+          borderRadius: "1.5rem",
+          padding: "2rem",
+          boxShadow: "0 10px 40px rgba(0,0,0,0.5)",
+        }}
+      >
+        <h1 style={{ fontSize: "1.75rem", fontWeight: 700, marginBottom: "0.75rem" }}>
+          Leave a tip
+        </h1>
+        <p style={{ opacity: 0.75, fontSize: "0.95rem", marginBottom: "1.5rem" }}>
+          Choose the amount and pay with Apple Pay, Google Pay or a bank card.
+        </p>
+
+        <div
+          style={{
+            display: "flex",
+            gap: "0.75rem",
+            justifyContent: "center",
+            marginBottom: "1rem",
+          }}
+        >
+          {AMOUNTS.map((amount) => (
+            <button
+              key={amount}
+              onClick={() => handleTip(amount)}
+              disabled={loadingAmount !== null}
+              style={{
+                padding: "0.75rem 1.25rem",
+                borderRadius: "999px",
+                border: "none",
+                cursor: loadingAmount ? "wait" : "pointer",
+                fontWeight: 600,
+                backgroundColor:
+                  loadingAmount === amount ? "#16a34a" : "#22c55e",
+                color: "white",
+                fontSize: "0.95rem",
+              }}
+            >
+              {loadingAmount === amount ? "Redirecting..." : `${amount} €`}
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={() => handleTip(10)}
+          disabled={loadingAmount !== null}
+          style={{
+            marginTop: "0.5rem",
+            padding: "0.65rem 1rem",
+            borderRadius: "0.75rem",
+            border: "1px solid rgba(148,163,184,0.5)",
+            background: "transparent",
+            color: "white",
+            cursor: loadingAmount ? "wait" : "pointer",
+            fontSize: "0.9rem",
+          }}
+        >
+          Custom tip coming soon
+        </button>
+
+        {error && (
+          <p
+            style={{
+              marginTop: "1rem",
+              color: "#f97373",
+              fontSize: "0.9rem",
+            }}
+          >
+            {error}
+          </p>
+        )}
+
+        <p
+          style={{
+            marginTop: "1.25rem",
+            fontSize: "0.75rem",
+            opacity: 0.6,
+          }}
+        >
+          Powered by PayTapper & Stripe (test mode).
+        </p>
+      </div>
+    </div>
+  );
+}
+
