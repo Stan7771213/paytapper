@@ -8,21 +8,22 @@ if (!stripeSecretKey) {
 }
 
 const stripe = new Stripe(stripeSecretKey, {
-  apiVersion: "2025-11-17.clover",
+  // apiVersion можно не указывать, будет использоваться версия из Dashboard
 });
 
 const baseUrl =
   process.env.NEXT_PUBLIC_BASE_URL || "https://www.paytapper.net";
 
-// платформа забирает 10%, гиду идёт 90%
+// платформа забирает 10%, клиент получает 90%
 const PLATFORM_FEE_PERCENT = 10;
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const amount = body?.amount;
-    const guideId = body?.guideId as string | undefined;
+    const amount = body.amount;
+    const clientIdFromBody = body.clientId as string | undefined;
+    const guideIdFromBody = body.guideId as string | undefined;
 
     if (!amount || typeof amount !== "number" || amount <= 0) {
       return NextResponse.json(
@@ -31,24 +32,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // amount приходит в центах (100 = 1.00 EUR)
+    // сумма приходит в центах (100 = 1.00 EUR)
     const totalAmountCents = amount;
 
     const platformFeeCents = Math.round(
       (totalAmountCents * PLATFORM_FEE_PERCENT) / 100
     );
-    const guideAmountCents = totalAmountCents - platformFeeCents;
+    const clientAmountCents = totalAmountCents - platformFeeCents;
+
+    const effectiveClientId =
+      clientIdFromBody || guideIdFromBody || "unknown-client";
 
     // всё в metadata кладём строками (Stripe этого требует)
     const metadata: Record<string, string> = {
       totalAmountCents: String(totalAmountCents),
       platformFeePercent: String(PLATFORM_FEE_PERCENT),
       platformFeeCents: String(platformFeeCents),
-      guideAmountCents: String(guideAmountCents),
+      clientAmountCents: String(clientAmountCents),
+      clientId: effectiveClientId,
     };
 
-    if (guideId) {
-      metadata.guideId = guideId;
+    // совместимость со старой логикой
+    if (guideIdFromBody) {
+      metadata.guideId = guideIdFromBody;
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -59,31 +65,31 @@ export async function POST(req: NextRequest) {
           price_data: {
             currency: "eur",
             product_data: {
-              name: "Tip for guide",
+              // обновили название под платформу
+              name: "Paytapper payment",
             },
             unit_amount: totalAmountCents,
           },
           quantity: 1,
         },
       ],
-      success_url: `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/`,
-      // metadata у самой сессии
-      metadata,
-      // и у payment_intent
+      success_url: `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}&clientId=${encodeURIComponent(
+        effectiveClientId
+      )}`,
+      cancel_url: `${baseUrl}/cancel`,
+      // metadata на уровне payment_intent
       payment_intent_data: {
         metadata,
       },
     });
 
     return NextResponse.json({ id: session.id, url: session.url });
-  } catch (error: any) {
-    console.error("Error creating checkout session:", error);
-
+  } catch (err: any) {
+    console.error("Error creating checkout session:", err);
     return NextResponse.json(
       {
         error: "Unable to create checkout session",
-        details: error?.message ?? "Unknown error",
+        details: err?.message ?? "Unknown error",
       },
       { status: 500 }
     );

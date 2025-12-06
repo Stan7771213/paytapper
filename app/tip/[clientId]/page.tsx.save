@@ -1,0 +1,6 @@
+import TipClient from "../TipClient";
+
+export default function TipByClientPage({ params }: { params: { clientId: string } }) {
+  return <TipClient clientId={params.clientId} />;
+}
+

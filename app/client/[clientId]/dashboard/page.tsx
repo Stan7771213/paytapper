@@ -1,18 +1,27 @@
 import { getClientById } from "@/lib/clientStore";
 import { StartOnboardingButton } from "./start-onboarding-button";
+import { OpenStripeDashboardButton } from "./open-stripe-dashboard-button";
 
 type DashboardPageProps = {
-  params: { clientId: string };
-  searchParams?: { [key: string]: string | string[] | undefined };
+  params: Promise<{ clientId: string }>;
+  searchParams?: Promise<{
+    [key: string]: string | string[] | undefined;
+  }>;
 };
 
-export default function ClientDashboardPage({
+export default async function ClientDashboardPage({
   params,
   searchParams,
 }: DashboardPageProps) {
-  const clientId = params.clientId;
+  // ВАЖНО: params и searchParams — это Promise, их нужно "await"
+  const { clientId } = await params;
+  const search = (searchParams ? await searchParams : {}) ?? {};
+  const onboardingParam = search.onboarding as
+    | string
+    | string[]
+    | undefined;
+
   const client = getClientById(clientId);
-  const onboardingParam = searchParams?.onboarding;
 
   return (
     <main className="max-w-xl mx-auto p-6 space-y-6">
@@ -35,8 +44,8 @@ export default function ClientDashboardPage({
         )}
         {!client && (
           <p className="text-sm text-gray-600">
-            No client record yet. It will be created automatically after you
-            start Stripe onboarding.
+            No client record yet. It will be created automatically after
+            you start Stripe onboarding.
           </p>
         )}
       </section>
@@ -64,14 +73,15 @@ export default function ClientDashboardPage({
           </>
         ) : (
           <p className="text-sm text-gray-600">
-            Stripe account is not created yet. Start onboarding to create it.
+            Stripe account is not created yet. Start onboarding to
+            create it.
           </p>
         )}
 
         {onboardingParam === "return" && (
           <p className="text-sm text-green-600">
-            You returned from Stripe onboarding. Your account status will
-            update shortly.
+            You returned from Stripe onboarding. Your account status
+            will update shortly.
           </p>
         )}
 
@@ -81,7 +91,15 @@ export default function ClientDashboardPage({
           </p>
         )}
 
+        {/* Кнопка онбординга Stripe */}
         <StartOnboardingButton clientId={clientId} />
+
+        {/* Кнопка входа в Stripe Dashboard — только если клиент уже есть */}
+        {client && (
+          <div className="pt-3">
+            <OpenStripeDashboardButton />
+          </div>
+        )}
       </section>
 
       <section className="border rounded-lg p-4 space-y-2">

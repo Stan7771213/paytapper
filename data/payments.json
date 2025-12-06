@@ -1,0 +1,20 @@
+[
+  {
+    "id": "pay_1765053378513",
+    "createdAt": "2025-12-06T20:36:18.513Z",
+    "stripePaymentIntentId": "pi_3SbSDEAwUyTrst9S1iCHlAWU",
+    "stripeCheckoutSessionId": "cs_test_a1wASwhtcHIn8GOvTAyhPDP5I1C4ocDEhe5kCnDr4JJ4g14KDFxdegXmOX",
+    "amountTotal": 1000,
+    "currency": "eur",
+    "status": "succeeded"
+  },
+  {
+    "id": "pi_3SbSMeAwUyTrst9S4gt7yqHC",
+    "createdAt": "2025-12-06T20:46:02.743Z",
+    "stripePaymentIntentId": null,
+    "stripeCheckoutSessionId": null,
+    "clientId": "user_1765053287197",
+    "currency": "eur",
+    "status": "succeeded"
+  }
+]

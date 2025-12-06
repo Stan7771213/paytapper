@@ -7,103 +7,119 @@ import Link from 'next/link';
 const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
 export default function AdminPage() {
-  const [guideId, setGuideId] = useState('');
+  const [clientId, setClientId] = useState('');
+  const hasClientId = clientId.trim().length > 0;
 
-  const tipUrl = guideId
-    ? `${baseUrl}/tip?guideId=${encodeURIComponent(guideId)}`
+  const paymentUrl = hasClientId
+    ? `${baseUrl}/tip?clientId=${encodeURIComponent(clientId.trim())}`
     : '';
 
-  const hasGuideId = guideId.trim().length > 0;
+  const handleCopy = async () => {
+    if (!paymentUrl) return;
+    try {
+      await navigator.clipboard.writeText(paymentUrl);
+      alert('Payment link copied to clipboard');
+    } catch (error) {
+      console.error('Failed to copy link', error);
+      alert('Could not copy the link. Please copy it manually.');
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-black text-white flex items-center justify-center px-4 py-8">
-      <div className="w-full max-w-2xl bg-zinc-950 border border-zinc-800 rounded-2xl p-8 shadow-lg">
-        <h1 className="text-3xl font-semibold mb-2 text-center">
-          Admin – guide QR generator
-        </h1>
-        <p className="text-zinc-400 text-center mb-8">
-          Generate QR codes and links for guides to receive tips.
-        </p>
-
-        <div className="space-y-6">
+    <main className="min-h-screen bg-black text-white flex items-center justify-center px-4">
+      <div className="w-full max-w-3xl border border-gray-800 rounded-2xl p-8 bg-gray-950/80 backdrop-blur-sm">
+        <div className="flex items-center justify-between gap-4 mb-6">
           <div>
-            <label
-              htmlFor="guideId"
-              className="block text-sm font-medium text-zinc-300 mb-2"
-            >
-              Guide ID
-            </label>
-            <input
-              id="guideId"
-              type="text"
-              value={guideId}
-              onChange={(e) => setGuideId(e.target.value)}
-              placeholder="e.g. sveta123"
-              className="w-full rounded-lg bg-zinc-900 border border-zinc-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-            <p className="text-xs text-zinc-500 mt-1">
-              This ID should match the <code>guideId</code> used in Stripe metadata.
+            <h1 className="text-3xl font-bold">Client QR generator</h1>
+            <p className="text-gray-400 text-sm mt-1">
+              Create payment links and QR codes for your clients to receive tips and small payments.
             </p>
           </div>
+          <Link
+            href="/"
+            className="text-xs text-gray-400 hover:text-gray-200 underline"
+          >
+            ← Back to landing
+          </Link>
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
-            <div className="flex flex-col items-center justify-center border border-zinc-800 rounded-xl p-4 min-h-[220px]">
-              {hasGuideId ? (
-                <>
-                  <QRCode value={tipUrl} size={160} />
-                  <p className="mt-3 text-xs text-zinc-400 break-all text-center">
-                    {tipUrl}
-                  </p>
-                </>
-              ) : (
-                <p className="text-zinc-500 text-sm text-center">
-                  Enter a guide ID to generate a QR code for the tip page.
-                </p>
-              )}
-            </div>
+        <div className="grid md:grid-cols-2 gap-8 items-start">
+          {/* Left side: client ID input */}
+          <div>
+            <label className="block text-sm mb-1" htmlFor="clientId">
+              Client ID
+            </label>
+            <input
+              id="clientId"
+              type="text"
+              value={clientId}
+              onChange={e => setClientId(e.target.value)}
+              placeholder="For example: cafe-001, tour-operator-123"
+              className="w-full rounded-lg bg-black border border-gray-700 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-400"
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              This ID should match the identifier you use for this client in your internal system.
+            </p>
 
-            <div className="space-y-4">
-              <div>
-                <h2 className="text-sm font-semibold mb-1">Tip page URL</h2>
-                <p className="text-xs text-zinc-400 break-all bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2">
-                  {hasGuideId ? tipUrl : 'Waiting for guide ID…'}
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-3">
-                <Link
-                  href={hasGuideId ? `/tip?guideId=${encodeURIComponent(guideId)}` : '#'}
-                  className={`inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium ${
-                    hasGuideId
-                      ? 'bg-blue-600 hover:bg-blue-500 text-white'
-                      : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
-                  }`}
-                  aria-disabled={!hasGuideId}
-                >
-                  Open tip page
-                </Link>
-
-                <Link
-                  href={hasGuideId ? `/guide/${encodeURIComponent(guideId)}` : '#'}
-                  className={`inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-medium ${
-                    hasGuideId
-                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                      : 'bg-zinc-800 text-zinc-500 cursor-not-allowed'
-                  }`}
-                  aria-disabled={!hasGuideId}
-                >
-                  Open guide dashboard
-                </Link>
+            <div className="mt-6">
+              <h2 className="text-sm font-semibold mb-2">Payment page URL</h2>
+              <div className="flex flex-col gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={paymentUrl || 'Enter a client ID to generate a payment link'}
+                  className="w-full rounded-lg bg-black border border-gray-700 px-3 py-2 text-xs text-gray-300"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCopy}
+                    disabled={!hasClientId}
+                    className={`flex-1 rounded-lg py-2 text-xs font-semibold transition ${
+                      hasClientId
+                        ? 'bg-white text-black hover:bg-gray-200'
+                        : 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    Copy link
+                  </button>
+                  {hasClientId && (
+                    <a
+                      href={paymentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 rounded-lg py-2 text-xs font-semibold text-center bg-gray-900 border border-gray-600 hover:bg-gray-800 transition"
+                    >
+                      Open page
+                    </a>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
-          <p className="text-[11px] text-zinc-600 text-center mt-4">
-            All links use <code>{baseUrl}</code>. Make sure it matches your deployed domain.
-          </p>
+          {/* Right side: QR code preview */}
+          <div className="flex flex-col items-center justify-center border border-gray-800 rounded-2xl px-6 py-8 min-h-[260px]">
+            {hasClientId ? (
+              <>
+                <div className="bg-white p-4 rounded-xl">
+                  <QRCode value={paymentUrl} size={160} />
+                </div>
+                <p className="text-xs text-gray-400 mt-4 text-center max-w-xs">
+                  This QR code points to the client&apos;s payment page. You can print it or place it on tables,
+                  doors, or tour materials.
+                </p>
+              </>
+            ) : (
+              <p className="text-sm text-gray-500 text-center">
+                Enter a <span className="font-semibold">Client ID</span> on the left to generate
+                a payment link and QR code for this client.
+              </p>
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 

@@ -1,34 +1,44 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { addPayment } from "@/lib/paymentStore";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET as string;
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2022-11-15",
+});
 
 export async function POST(req: Request) {
   const sig = req.headers.get("stripe-signature");
+  const body = await req.text();
 
-  if (!sig || !webhookSecret) {
-    return NextResponse.json({ error: "Missing signature" }, { status: 400 });
-  }
-
-  let event: Stripe.Event;
+  let event;
 
   try {
-    const body = await req.text(); // сырое тело для проверки подписи
-    event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
+    event = stripe.webhooks.constructEvent(
+      body,
+      sig!,
+      process.env.STRIPE_WEBHOOK_SECRET!
+    );
   } catch (err: any) {
-    console.error("❌ Webhook signature verification failed:", err.message);
-    return new NextResponse(`Webhook Error: ${err.message}`, { status: 400 });
+    console.error("Webhook signature error:", err.message);
+    return new NextResponse("Signature error", { status: 400 });
   }
 
-  // Обрабатываем успешную оплату
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object as Stripe.Checkout.Session;
-    console.log("✅ Payment success:", {
-      id: session.id,
-      amount_total: session.amount_total,
-      currency: session.currency,
-      customer_email: session.customer_details?.email,
+  if (event.type === "payment_intent.succeeded") {
+    const intent = event.data.object as any;
+
+    await addPayment({
+      id: intent.id,
+      clientId: intent.metadata.clientId,
+      amount: intent.amount_received,
+      currency: intent.currency,
+      createdAt: new Date().toISOString(),
+      status: "succeeded",
     });
   }
 
