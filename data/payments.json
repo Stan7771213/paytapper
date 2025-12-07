@@ -28,5 +28,18 @@
     "platformFeeAmount": 50,
     "clientAmount": 450,
     "status": "succeeded"
+  },
+  {
+    "id": "pi_3Sbjt2AwUyTrst9S08wdRRXs",
+    "stripePaymentIntentId": "pi_3Sbjt2AwUyTrst9S08wdRRXs",
+    "stripeCheckoutSessionId": null,
+    "clientId": "user_1765053287197",
+    "amountTotal": 500,
+    "currency": "eur",
+    "platformFeeAmount": 50,
+    "clientAmount": 450,
+    "status": "succeeded",
+    "type": "tip",
+    "createdAt": "2025-12-07T15:28:39.949Z"
   }
 ]

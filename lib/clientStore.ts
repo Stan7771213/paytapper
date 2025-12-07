@@ -18,8 +18,12 @@ export interface Client {
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const CLIENTS_FILE = path.join(DATA_DIR, "clients.json");
+const isProd = process.env.NODE_ENV === "production";
 
 function ensureDataFile() {
+  // В продакшене ничего не создаём на диске
+  if (isProd) return;
+
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
   }
@@ -29,16 +33,25 @@ function ensureDataFile() {
 }
 
 function readAllClients(): Client[] {
-  ensureDataFile();
-  const raw = fs.readFileSync(CLIENTS_FILE, "utf8");
   try {
+    if (!isProd) {
+      // В dev гарантируем наличие файла
+      ensureDataFile();
+    }
+
+    const raw = fs.readFileSync(CLIENTS_FILE, "utf8");
+    if (!raw.trim()) return [];
     return JSON.parse(raw) as Client[];
   } catch {
+    // Если файла нет или ошибка чтения — просто считаем, что клиентов нет
     return [];
   }
 }
 
 function writeAllClients(clients: Client[]) {
+  // В продакшене файловая система read-only, ничего не пишем
+  if (isProd) return;
+
   ensureDataFile();
   fs.writeFileSync(CLIENTS_FILE, JSON.stringify(clients, null, 2), "utf8");
 }

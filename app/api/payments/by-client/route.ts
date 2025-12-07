@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listPaymentsByClient } from "@/lib/paymentStore";
+import { getPaymentsByClientId } from "@/lib/paymentStore";
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const clientId = body.clientId as string | undefined;
+    const { clientId } = await req.json();
 
     if (!clientId) {
       return NextResponse.json(
@@ -13,33 +12,60 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const payments = listPaymentsByClient(clientId);
+    const payments = await getPaymentsByClientId(clientId);
 
-    // Фильтруем только валидные (новые) платежи
-    const valid = payments.filter((p) => typeof p.amountTotal === "number");
+    const totalTips = payments.length;
 
-    const totalAmount = valid.reduce((sum, p) => sum + p.amountTotal, 0);
-    const totalClientAmount = valid.reduce(
-      (sum, p) => sum + (p.clientAmount ?? 0),
-      0
-    );
-    const totalPlatformFee = valid.reduce(
-      (sum, p) => sum + (p.platformFeeAmount ?? 0),
+    const totalAmountGross = payments.reduce(
+      (sum, p) => sum + (p.amountTotal || 0),
       0
     );
 
-    return NextResponse.json({
-      clientId,
-      count: payments.length,
-      totalAmount,
-      totalClientAmount,
+    const totalNetToClient = payments.reduce(
+      (sum, p) => sum + (p.clientAmount || 0),
+      0
+    );
+
+    const totalPlatformFee = payments.reduce(
+      (sum, p) => sum + (p.platformFeeAmount || 0),
+      0
+    );
+
+    const summary = {
+      totalTips,
+      totalAmountGross,
+      totalNetToClient,
       totalPlatformFee,
-      payments,
-    });
-  } catch (error) {
-    console.error("Error in /api/payments/by-client:", error);
+    };
+
     return NextResponse.json(
-      { error: "Internal server error" },
+      {
+        payments,
+
+        // Новые/говорящие поля
+        summary,
+        stats: summary,
+
+        // ИМЕННО эти поля ожидает dashboard/page.tsx:
+        clientId,
+        count: totalTips,
+        totalAmount: totalAmountGross,
+        totalClientAmount: totalNetToClient,
+        totalPlatformFee: totalPlatformFee,
+
+        // Дополнительно – альтернативные имена, вдруг пригодятся дальше
+        totalTips,
+        totalAmountGross,
+        totalNetAmount: totalNetToClient,
+        totalNetToClient,
+        platformFeeTotal: totalPlatformFee,
+      },
+      { status: 200 }
+    );
+  } catch (error: any) {
+    console.error("Error in by-client route:", error);
+    return NextResponse.json(
+      { error: "Internal Server Error" },
       { status: 500 }
     );
   }

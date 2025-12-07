@@ -3,7 +3,7 @@ import path from "path";
 import bcrypt from "bcryptjs";
 
 export interface User {
-  userId: string; // внутренний ID
+  userId: string; // internal ID
   email: string;
   passwordHash: string;
   createdAt: string; // ISO
@@ -11,8 +11,12 @@ export interface User {
 
 const DATA_DIR = path.join(process.cwd(), "data");
 const USERS_FILE = path.join(DATA_DIR, "users.json");
+const isProd = process.env.NODE_ENV === "production";
 
 function ensureDataFile() {
+  // In production on Vercel we don't create any files/directories
+  if (isProd) return;
+
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
   }
@@ -22,16 +26,25 @@ function ensureDataFile() {
 }
 
 function readAllUsers(): User[] {
-  ensureDataFile();
-  const raw = fs.readFileSync(USERS_FILE, "utf8");
   try {
+    if (!isProd) {
+      // In dev ensure file exists
+      ensureDataFile();
+    }
+
+    const raw = fs.readFileSync(USERS_FILE, "utf8");
+    if (!raw.trim()) return [];
     return JSON.parse(raw) as User[];
   } catch {
+    // If file not found or any error – assume no users
     return [];
   }
 }
 
 function writeAllUsers(users: User[]) {
+  // No file writes in production
+  if (isProd) return;
+
   ensureDataFile();
   fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), "utf8");
 }

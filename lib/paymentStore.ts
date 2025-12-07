@@ -1,116 +1,99 @@
-import fs from "fs";
+import fs from "fs/promises";
 import path from "path";
 
-export type PaymentStatus = "succeeded" | "pending" | "failed";
+const PAYMENTS_FILE_PATH = path.join(process.cwd(), "data", "payments.json");
+const isProd = process.env.NODE_ENV === "production";
 
-// тип платежа: пока используем "tip", но оставляем возможность расширения
-export type PaymentType = "tip" | "payment" | string;
-
-export type PaymentRecord = {
-  id: string; // internal ID, e.g. "pay_1699999999999"
-  stripePaymentIntentId?: string | null;
-  stripeCheckoutSessionId?: string | null;
-  clientId: string; // userId / clientId who receives the payment
-
-  // Суммы в центах
-  amountTotal: number; // GROSS (полная сумма)
-  currency: string; // e.g. "eur"
-  platformFeeAmount?: number; // комиссия платформы
-  clientAmount?: number; // NET для клиента
-
-  status: PaymentStatus;
-  createdAt: string; // ISO date
-
-  // новый параметр типа платежа
-  type?: PaymentType;
+export type Payment = {
+  id: string;
+  clientId: string;
+  amountTotal: number;
+  platformFeeAmount: number;
+  clientAmount: number;
+  currency: string;
+  type: string; // e.g. "tip"
+  createdAt: string; // ISO string
+  stripePaymentIntentId?: string;
+  stripeChargeId?: string;
 };
 
-const PAYMENTS_FILE_PATH = path.join(process.cwd(), "data", "payments.json");
+export type NewPayment = Omit<Payment, "id"> & { id?: string };
 
-function ensurePaymentsFileExists() {
+async function readPaymentsFromFile(): Promise<Payment[]> {
   try {
-    if (!fs.existsSync(PAYMENTS_FILE_PATH)) {
-      const dir = path.dirname(PAYMENTS_FILE_PATH);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-      fs.writeFileSync(PAYMENTS_FILE_PATH, "[]", "utf-8");
-    }
-  } catch (error) {
-    console.error("Failed to ensure payments file exists:", error);
-  }
-}
-
-function readPaymentsSync(): PaymentRecord[] {
-  try {
-    ensurePaymentsFileExists();
-    const raw = fs.readFileSync(PAYMENTS_FILE_PATH, "utf-8");
-    if (!raw.trim()) {
+    const file = await fs.readFile(PAYMENTS_FILE_PATH, "utf8");
+    if (!file.trim()) {
       return [];
     }
-    const data = JSON.parse(raw);
-    if (!Array.isArray(data)) {
-      console.warn("payments.json is not an array, resetting to empty array");
-      return [];
-    }
-    return data as PaymentRecord[];
-  } catch (error) {
-    console.error("Failed to read payments.json:", error);
+    return JSON.parse(file) as Payment[];
+  } catch (error: any) {
+    // Если файла нет или ошибка чтения — считаем, что платежей пока нет
     return [];
   }
 }
 
-function writePaymentsSync(payments: PaymentRecord[]): void {
-  try {
-    const json = JSON.stringify(payments, null, 2);
-    fs.writeFileSync(PAYMENTS_FILE_PATH, json, "utf-8");
-  } catch (error) {
-    console.error("Failed to write payments.json:", error);
+async function writePaymentsToFile(payments: Payment[]): Promise<void> {
+  if (isProd) {
+    // В продакшене файловая система read-only на Vercel.
+    // Просто ничего не делаем, чтобы не было ошибок.
+    return;
   }
-}
 
-function generatePaymentId(): string {
-  return `pay_${Date.now()}`;
+  const json = JSON.stringify(payments, null, 2);
+  await fs.writeFile(PAYMENTS_FILE_PATH, json, "utf8");
 }
 
 /**
- * Add a new payment record.
- * Required fields are everything except id and createdAt,
- * which will be generated if not provided.
+ * Добавить новый платеж.
+ * В dev пишет в JSON-файл.
+ * В prod НИЧЕГО не пишет, но возвращает корректный объект,
+ * чтобы вебхук и остальной код не падали.
  */
-export function addPayment(
-  payment: Omit<PaymentRecord, "id" | "createdAt"> & {
-    id?: string;
-    createdAt?: string;
-  }
-): PaymentRecord {
-  const payments = readPaymentsSync();
-
-  const newRecord: PaymentRecord = {
-    id: payment.id ?? generatePaymentId(),
-    createdAt: payment.createdAt ?? new Date().toISOString(),
-    stripePaymentIntentId: payment.stripePaymentIntentId ?? null,
-    stripeCheckoutSessionId: payment.stripeCheckoutSessionId ?? null,
-    clientId: payment.clientId,
-    amountTotal: payment.amountTotal,
-    currency: payment.currency,
-    platformFeeAmount: payment.platformFeeAmount,
-    clientAmount: payment.clientAmount,
-    status: payment.status,
-    type: payment.type ?? "tip", // по умолчанию считаем, что это чаевые
+export async function addPayment(newPayment: NewPayment): Promise<Payment> {
+  const payment: Payment = {
+    id:
+      newPayment.id ||
+      newPayment.stripePaymentIntentId ||
+      `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    ...newPayment,
+    createdAt: newPayment.createdAt || new Date().toISOString(),
   };
 
-  payments.push(newRecord);
-  writePaymentsSync(payments);
+  if (isProd) {
+    // В продакшене не пытаемся читать/писать файл — просто возвращаем объект.
+    return payment;
+  }
 
-  return newRecord;
+  const payments = await readPaymentsFromFile();
+  payments.push(payment);
+  await writePaymentsToFile(payments);
+
+  return payment;
 }
 
 /**
- * Return all payments for a given clientId.
+ * Получить все платежи.
+ * В prod: лучшая попытка чтения, но если файла нет или он не обновляется — вернётся [].
  */
-export function listPaymentsByClient(clientId: string): PaymentRecord[] {
-  const payments = readPaymentsSync();
+export async function getAllPayments(): Promise<Payment[]> {
+  if (isProd) {
+    try {
+      return await readPaymentsFromFile();
+    } catch {
+      return [];
+    }
+  }
+
+  return readPaymentsFromFile();
+}
+
+/**
+ * Получить платежи по clientId.
+ */
+export async function getPaymentsByClientId(
+  clientId: string
+): Promise<Payment[]> {
+  const payments = await getAllPayments();
   return payments.filter((p) => p.clientId === clientId);
 }
 
