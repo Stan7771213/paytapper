@@ -17,13 +17,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
-    const origin = req.headers.get("origin") || "https://www.paytapper.net";
-
+    // ⚠️ Главное изменение: вызываем без redirect_url,
+    // чтобы не конфликтовать с версией Stripe SDK на Vercel
     const loginLink = await stripe.accounts.createLoginLink(
-      client.stripeAccountId,
-      {
-        redirect_url: `${origin}/dashboard`,
-      }
+      client.stripeAccountId
     );
 
     return NextResponse.json({ url: loginLink.url });
