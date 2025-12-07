@@ -1,63 +1,38 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getClientById } from "@/lib/clientStore";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2023-10-16",
+});
 
-const BASE_URL =
-  process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
-
-export async function POST(req: NextRequest) {
+export async function POST(req: Request) {
   try {
-    const body = (await req.json().catch(() => ({}))) as {
-      clientId?: string;
-    };
-
-    const clientId = body.clientId;
+    const { clientId } = await req.json();
 
     if (!clientId) {
-      return NextResponse.json(
-        { error: "clientId is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing clientId" }, { status: 400 });
     }
 
-    // Ищем клиента в нашем хранилище
-    const client: any = await getClientById(clientId);
-
+    const client = getClientById(clientId);
     if (!client) {
-      return NextResponse.json(
-        { error: "Client not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
-    if (!client.stripeAccountId) {
-      return NextResponse.json(
-        { error: "Stripe account is not connected yet" },
-        { status: 400 }
-      );
-    }
+    const origin = req.headers.get("origin") || "https://www.paytapper.net";
 
-    // Создаём login link для Stripe Express / Standard Dashboard
     const loginLink = await stripe.accounts.createLoginLink(
       client.stripeAccountId,
       {
-        redirect_url: `${BASE_URL}/dashboard`,
+        redirect_url: `${origin}/dashboard`,
       }
     );
 
+    return NextResponse.json({ url: loginLink.url });
+  } catch (error: any) {
+    console.error("Stripe login link error:", error);
     return NextResponse.json(
-      { url: loginLink.url },
-      { status: 200 }
-    );
-  } catch (err: any) {
-    console.error("Error in /api/stripe/login:", err);
-    return NextResponse.json(
-      {
-        error:
-          err?.message || "Internal server error in /api/stripe/login",
-      },
+      { error: error.message || "Failed to create login link" },
       { status: 500 }
     );
   }
