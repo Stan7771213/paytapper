@@ -14,8 +14,10 @@ export type Payment = {
   type: string; // e.g. "tip"
   createdAt: string; // ISO string
   stripePaymentIntentId?: string;
+  stripeCheckoutSessionId?: string | null;
   stripeChargeId?: string;
 };
+
 
 export type NewPayment = Omit<Payment, "id"> & { id?: string };
 
