@@ -3,17 +3,26 @@ import path from "path";
 
 export type PaymentStatus = "succeeded" | "pending" | "failed";
 
+// тип платежа: пока используем "tip", но оставляем возможность расширения
+export type PaymentType = "tip" | "payment" | string;
+
 export type PaymentRecord = {
   id: string; // internal ID, e.g. "pay_1699999999999"
   stripePaymentIntentId?: string | null;
   stripeCheckoutSessionId?: string | null;
   clientId: string; // userId / clientId who receives the payment
-  amountTotal: number; // in cents
+
+  // Суммы в центах
+  amountTotal: number; // GROSS (полная сумма)
   currency: string; // e.g. "eur"
-  platformFeeAmount?: number; // in cents
-  clientAmount?: number; // in cents
+  platformFeeAmount?: number; // комиссия платформы
+  clientAmount?: number; // NET для клиента
+
   status: PaymentStatus;
   createdAt: string; // ISO date
+
+  // новый параметр типа платежа
+  type?: PaymentType;
 };
 
 const PAYMENTS_FILE_PATH = path.join(process.cwd(), "data", "payments.json");
@@ -88,6 +97,7 @@ export function addPayment(
     platformFeeAmount: payment.platformFeeAmount,
     clientAmount: payment.clientAmount,
     status: payment.status,
+    type: payment.type ?? "tip", // по умолчанию считаем, что это чаевые
   };
 
   payments.push(newRecord);

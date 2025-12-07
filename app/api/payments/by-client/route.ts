@@ -15,12 +15,15 @@ export async function POST(req: NextRequest) {
 
     const payments = listPaymentsByClient(clientId);
 
-    const totalAmount = payments.reduce((sum, p) => sum + p.amountTotal, 0);
-    const totalClientAmount = payments.reduce(
+    // Фильтруем только валидные (новые) платежи
+    const valid = payments.filter((p) => typeof p.amountTotal === "number");
+
+    const totalAmount = valid.reduce((sum, p) => sum + p.amountTotal, 0);
+    const totalClientAmount = valid.reduce(
       (sum, p) => sum + (p.clientAmount ?? 0),
       0
     );
-    const totalPlatformFee = payments.reduce(
+    const totalPlatformFee = valid.reduce(
       (sum, p) => sum + (p.platformFeeAmount ?? 0),
       0
     );

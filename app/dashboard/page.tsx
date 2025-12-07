@@ -13,12 +13,24 @@ type StripeStatus = {
   stripeAccountId?: string;
 };
 
+type PaymentItem = {
+  id: string;
+  createdAt: string;
+  amountTotal: number; // cents
+  currency: string;
+  platformFeeAmount: number; // cents
+  clientAmount: number; // cents
+  status: string;
+  type?: string;
+};
+
 type PaymentStats = {
   clientId: string;
   count: number;
   totalAmount: number; // cents
   totalClientAmount: number; // cents
   totalPlatformFee: number; // cents
+  payments: PaymentItem[];
 };
 
 export default function DashboardPage() {
@@ -109,12 +121,31 @@ export default function DashboardPage() {
         }
 
         const data = await resp.json();
+
+        const payments: PaymentItem[] = (data.payments ?? []).map((p: any) => ({
+          id:
+            p.id ||
+            p.stripePaymentIntentId ||
+            p.stripeCheckoutSessionId ||
+            "unknown",
+          createdAt: p.createdAt || "",
+          amountTotal: typeof p.amountTotal === "number" ? p.amountTotal : 0,
+          currency: (p.currency || "eur").toLowerCase(),
+          platformFeeAmount:
+            typeof p.platformFeeAmount === "number" ? p.platformFeeAmount : 0,
+          clientAmount:
+            typeof p.clientAmount === "number" ? p.clientAmount : 0,
+          status: p.status || "unknown",
+          type: p.type || "tip",
+        }));
+
         setStats({
           clientId: data.clientId,
           count: data.count,
-          totalAmount: data.totalAmount,
-          totalClientAmount: data.totalClientAmount,
-          totalPlatformFee: data.totalPlatformFee,
+          totalAmount: data.totalAmount ?? 0,
+          totalClientAmount: data.totalClientAmount ?? 0,
+          totalPlatformFee: data.totalPlatformFee ?? 0,
+          payments,
         });
       } catch (error: any) {
         console.error("Error loading stats:", error);
@@ -209,6 +240,17 @@ export default function DashboardPage() {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
+
+  const recentPayments: PaymentItem[] =
+    stats?.payments && stats.payments.length > 0
+      ? [...stats.payments]
+          .sort(
+            (a, b) =>
+              new Date(b.createdAt || 0).getTime() -
+              new Date(a.createdAt || 0).getTime()
+          )
+          .slice(0, 5)
+      : [];
 
   return (
     <main className="min-h-screen bg-black text-white flex justify-center px-4 py-8">
@@ -361,27 +403,94 @@ export default function DashboardPage() {
           )}
 
           {!isStatsLoading && !statsError && stats && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-              <div className="rounded-xl border border-gray-800 bg-black/30 p-3">
-                <p className="text-xs text-gray-500">Total tips</p>
-                <p className="text-xl font-semibold mt-1">{stats.count}</p>
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                <div className="rounded-xl border border-gray-800 bg-black/30 p-3">
+                  <p className="text-xs text-gray-500">Total tips</p>
+                  <p className="text-xl font-semibold mt-1">
+                    {stats.count}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-gray-800 bg-black/30 p-3">
+                  <p className="text-xs text-gray-500">Total amount (gross)</p>
+                  <p className="text-xl font-semibold mt-1">
+                    {formatEuro(stats.totalAmount)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-gray-800 bg-black/30 p-3">
+                  <p className="text-xs text-gray-500">Your earnings (net)</p>
+                  <p className="text-xl font-semibold mt-1">
+                    {formatEuro(stats.totalClientAmount)}
+                  </p>
+                  <p className="text-[11px] text-gray-500 mt-1">
+                    Platform fee collected:{" "}
+                    {formatEuro(stats.totalPlatformFee)}
+                  </p>
+                </div>
               </div>
-              <div className="rounded-xl border border-gray-800 bg-black/30 p-3">
-                <p className="text-xs text-gray-500">Total amount (gross)</p>
-                <p className="text-xl font-semibold mt-1">
-                  {formatEuro(stats.totalAmount)}
+
+              {recentPayments.length > 0 && (
+                <div className="mt-4">
+                  <h3 className="text-sm font-semibold mb-2">
+                    Recent payments
+                  </h3>
+                  <div className="border border-gray-800 rounded-xl overflow-hidden">
+                    <div className="grid grid-cols-4 sm:grid-cols-6 text-[11px] uppercase tracking-wide text-gray-500 bg-black/40 px-3 py-2">
+                      <span>Date</span>
+                      <span className="text-right">Amount</span>
+                      <span className="hidden sm:block text-right">
+                        Net to you
+                      </span>
+                      <span className="hidden sm:block text-right">
+                        Fee
+                      </span>
+                      <span className="text-right">Status</span>
+                      <span className="hidden sm:block text-right">
+                        Type
+                      </span>
+                    </div>
+                    {recentPayments.map((p) => (
+                      <div
+                        key={p.id + p.createdAt}
+                        className="grid grid-cols-4 sm:grid-cols-6 text-[11px] px-3 py-2 border-t border-gray-900/60 bg-black/20"
+                      >
+                        <span className="truncate pr-2">
+                          {p.createdAt
+                            ? new Date(p.createdAt).toLocaleString("en-GB", {
+                                day: "2-digit",
+                                month: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
+                            : "—"}
+                        </span>
+                        <span className="text-right">
+                          {formatEuro(p.amountTotal)}
+                        </span>
+                        <span className="hidden sm:block text-right">
+                          {formatEuro(p.clientAmount)}
+                        </span>
+                        <span className="hidden sm:block text-right">
+                          {formatEuro(p.platformFeeAmount)}
+                        </span>
+                        <span className="text-right capitalize">
+                          {p.status}
+                        </span>
+                        <span className="hidden sm:block text-right">
+                          {p.type || "tip"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {recentPayments.length === 0 && (
+                <p className="text-sm text-gray-400 mt-2">
+                  No payments recorded yet for this account.
                 </p>
-              </div>
-              <div className="rounded-xl border border-gray-800 bg-black/30 p-3">
-                <p className="text-xs text-gray-500">Your earnings (net)</p>
-                <p className="text-xl font-semibold mt-1">
-                  {formatEuro(stats.totalClientAmount)}
-                </p>
-                <p className="text-[11px] text-gray-500 mt-1">
-                  Platform fee collected: {formatEuro(stats.totalPlatformFee)}
-                </p>
-              </div>
-            </div>
+              )}
+            </>
           )}
 
           {!isStatsLoading && !statsError && !stats && (

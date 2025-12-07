@@ -16,5 +16,17 @@
     "clientId": "user_1765053287197",
     "currency": "eur",
     "status": "succeeded"
+  },
+  {
+    "id": "pi_3SbeU2AwUyTrst9S3m0yJBze",
+    "createdAt": "2025-12-07T09:42:28.474Z",
+    "stripePaymentIntentId": "pi_3SbeU2AwUyTrst9S3m0yJBze",
+    "stripeCheckoutSessionId": null,
+    "clientId": "user_1765053287197",
+    "amountTotal": 500,
+    "currency": "eur",
+    "platformFeeAmount": 50,
+    "clientAmount": 450,
+    "status": "succeeded"
   }
 ]
