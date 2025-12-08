@@ -1,48 +1,79 @@
 import fs from "fs/promises";
 import path from "path";
 
-const PAYMENTS_FILE_PATH = path.join(process.cwd(), "data", "payments.json");
 const isProd = process.env.NODE_ENV === "production";
 
-export type Payment = {
-  id: string;
+const PAYMENTS_FILE_PATH = path.join(process.cwd(), "data", "payments.json");
+
+export type PaymentStatus = "succeeded" | "pending" | "failed" | "canceled";
+export type PaymentType = "tip" | "payment";
+
+/**
+ * Полная запись платежа, как она хранится в системе.
+ */
+export interface Payment {
+  id: string; // внутренний ID записи (по умолчанию = paymentIntentId)
   clientId: string;
-  amountTotal: number;
-  platformFeeAmount: number;
-  clientAmount: number;
-  currency: string;
-  type: string; // e.g. "tip"
-  createdAt: string; // ISO string
-  stripePaymentIntentId?: string;
+
+  amountTotal: number; // полная сумма, полученная Stripe (в центах)
+  platformFeeAmount: number; // комиссия платформы (в центах)
+  clientAmount: number; // сумма для клиента (в центах)
+  currency: string; // например "eur"
+
+  status: PaymentStatus; // например "succeeded"
+  type: PaymentType; // например "tip"
+
+  stripePaymentIntentId?: string | null;
   stripeCheckoutSessionId?: string | null;
-  stripeChargeId?: string;
+
+  createdAt: string; // ISO-строка даты создания записи
+}
+
+/**
+ * Тип для создания нового платежа.
+ * Позволяет НЕ указывать id и createdAt — они будут сгенерированы в addPayment.
+ * При этом поддерживает ВСЕ поля, которые мы реально передаём из webhook.
+ */
+export type NewPayment = Omit<Payment, "id" | "createdAt"> & {
+  id?: string;
+  createdAt?: string;
 };
 
-
-export type NewPayment = Omit<Payment, "id"> & { id?: string };
-
+/**
+ * Вспомогательная функция: безопасно прочитать payments.json.
+ * В dev — обычное чтение из файла.
+ * В prod — используется только там, где это явно нужно (getAllPayments),
+ * и всегда обёрнуто в try/catch.
+ */
 async function readPaymentsFromFile(): Promise<Payment[]> {
   try {
-    const file = await fs.readFile(PAYMENTS_FILE_PATH, "utf8");
-    if (!file.trim()) {
-      return [];
+    const fileData = await fs.readFile(PAYMENTS_FILE_PATH, "utf-8");
+    const parsed = JSON.parse(fileData);
+    if (Array.isArray(parsed)) {
+      return parsed as Payment[];
     }
-    return JSON.parse(file) as Payment[];
-  } catch (error: any) {
-    // Если файла нет или ошибка чтения — считаем, что платежей пока нет
+    return [];
+  } catch (error) {
+    // Файл может отсутствовать или быть недоступен — в этом случае просто [].
     return [];
   }
 }
 
+/**
+ * Вспомогательная функция: безопасно записать payments.json в dev.
+ * В prod мы её не вызываем.
+ */
 async function writePaymentsToFile(payments: Payment[]): Promise<void> {
-  if (isProd) {
-    // В продакшене файловая система read-only на Vercel.
-    // Просто ничего не делаем, чтобы не было ошибок.
-    return;
+  try {
+    await fs.mkdir(path.dirname(PAYMENTS_FILE_PATH), { recursive: true });
+    await fs.writeFile(
+      PAYMENTS_FILE_PATH,
+      JSON.stringify(payments, null, 2),
+      "utf-8"
+    );
+  } catch (error) {
+    console.error("Failed to write payments file:", error);
   }
-
-  const json = JSON.stringify(payments, null, 2);
-  await fs.writeFile(PAYMENTS_FILE_PATH, json, "utf8");
 }
 
 /**

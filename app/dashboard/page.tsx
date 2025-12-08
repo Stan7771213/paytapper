@@ -66,6 +66,8 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user) return;
 
+    const clientId = user.userId;
+
     async function fetchStripeStatus() {
       try {
         setIsStripeChecking(true);
@@ -74,7 +76,7 @@ export default function DashboardPage() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ clientId: user.userId }),
+          body: JSON.stringify({ clientId }),
         });
 
         if (!resp.ok) {
@@ -102,6 +104,8 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!user) return;
 
+    const clientId = user.userId;
+
     async function fetchStats() {
       try {
         setIsStatsLoading(true);
@@ -112,7 +116,7 @@ export default function DashboardPage() {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ clientId: user.userId }),
+          body: JSON.stringify({ clientId }),
         });
 
         if (!resp.ok) {
