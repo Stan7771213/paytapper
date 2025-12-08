@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { addPayment } from "@/lib/paymentStore";
-
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+import { stripe } from "@/lib/stripe";
 
 // Platform fee (10%)
-const PLATFORM_FEE_PERCENT = 0.10;
+const PLATFORM_FEE_PERCENT = 0.1;
 
 export async function POST(req: Request) {
   const sig = req.headers.get("stripe-signature");
@@ -58,8 +56,6 @@ export async function POST(req: Request) {
         platformFeeAmount,
         clientAmount,
         status: "succeeded",
-
-        // 🔥 NEW FIELD
         type: "tip",
       });
     } catch (error) {
