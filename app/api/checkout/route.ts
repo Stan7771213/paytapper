@@ -1,15 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import Stripe from "stripe";
-
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-
-if (!stripeSecretKey) {
-  throw new Error("STRIPE_SECRET_KEY is not set in environment variables");
-}
-
-const stripe = new Stripe(stripeSecretKey, {
-  // apiVersion можно не указывать, будет использоваться версия из Dashboard
-});
+import { stripe } from "@/lib/stripe";
 
 const baseUrl =
   process.env.NEXT_PUBLIC_BASE_URL || "https://www.paytapper.net";
