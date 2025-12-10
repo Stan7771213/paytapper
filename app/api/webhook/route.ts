@@ -1,10 +1,36 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { addPayment } from "@/lib/paymentStore";
-import { stripe } from "@/lib/stripe";
+import { stripe, stripeMode } from "@/lib/stripe";
 
 // Platform fee (10%)
 const PLATFORM_FEE_PERCENT = 0.1;
+
+function getWebhookSecret(): string {
+  if (stripeMode === "live") {
+    const liveSecret =
+      process.env.STRIPE_WEBHOOK_SECRET_LIVE ||
+      process.env.STRIPE_WEBHOOK_SECRET;
+    if (!liveSecret) {
+      throw new Error(
+        "Stripe live webhook secret is not set. Please configure STRIPE_WEBHOOK_SECRET_LIVE or STRIPE_WEBHOOK_SECRET."
+      );
+    }
+    return liveSecret;
+  } else {
+    const testSecret =
+      process.env.STRIPE_WEBHOOK_SECRET_TEST ||
+      process.env.STRIPE_WEBHOOK_SECRET;
+    if (!testSecret) {
+      throw new Error(
+        "Stripe test webhook secret is not set. Please configure STRIPE_WEBHOOK_SECRET_TEST or STRIPE_WEBHOOK_SECRET."
+      );
+    }
+    return testSecret;
+  }
+}
+
+const webhookSecret = getWebhookSecret();
 
 export async function POST(req: Request) {
   const sig = req.headers.get("stripe-signature");
@@ -18,11 +44,7 @@ export async function POST(req: Request) {
       return new NextResponse("Missing signature", { status: 400 });
     }
 
-    event = stripe.webhooks.constructEvent(
-      body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    );
+    event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
   } catch (err: any) {
     console.error("Webhook signature error:", err.message);
     return new NextResponse("Signature error", { status: 400 });

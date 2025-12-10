@@ -41,5 +41,18 @@
     "status": "succeeded",
     "type": "tip",
     "createdAt": "2025-12-07T15:28:39.949Z"
+  },
+  {
+    "id": "pi_3ScPTbAwUyTrst9S1BbKXbt6",
+    "stripePaymentIntentId": "pi_3ScPTbAwUyTrst9S1BbKXbt6",
+    "stripeCheckoutSessionId": null,
+    "clientId": "test-client-live-prep",
+    "amountTotal": 500,
+    "currency": "eur",
+    "platformFeeAmount": 50,
+    "clientAmount": 450,
+    "status": "succeeded",
+    "type": "tip",
+    "createdAt": "2025-12-09T11:53:08.991Z"
   }
 ]
