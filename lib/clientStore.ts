@@ -1,14 +1,13 @@
 // lib/clientStore.ts
-import fs from "fs/promises";
+
+import fs from "fs";
 import path from "path";
 
-const DATA_FILE_PATH = path.join(process.cwd(), "data", "clients.json");
-
 export type Client = {
-  id: string; // clientId used in URLs and QR links
+  id: string;
   email: string;
   name?: string;
-  createdAt: string; // ISO string
+  createdAt: string;
   stripeAccountId?: string;
   qrEmailSent?: boolean;
 };
@@ -18,96 +17,139 @@ export type NewClient = {
   name?: string;
 };
 
-type ClientsFileShape = {
-  clients: Client[];
-};
+const dataDir = path.join(process.cwd(), "data");
+const clientsFilePath = path.join(dataDir, "clients.json");
 
-async function ensureFileExists() {
-  try {
-    await fs.access(DATA_FILE_PATH);
-  } catch {
-    const initial: ClientsFileShape = { clients: [] };
-    await fs.mkdir(path.dirname(DATA_FILE_PATH), { recursive: true });
-    await fs.writeFile(DATA_FILE_PATH, JSON.stringify(initial, null, 2), "utf8");
+function ensureClientsFileExists() {
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+
+  if (!fs.existsSync(clientsFilePath)) {
+    fs.writeFileSync(clientsFilePath, "[]", "utf8");
   }
 }
 
-async function readClientsFile(): Promise<ClientsFileShape> {
-  await ensureFileExists();
-
-  const raw = await fs.readFile(DATA_FILE_PATH, "utf8");
-
-  if (!raw.trim()) {
-    return { clients: [] };
-  }
-
+function readClients(): Client[] {
   try {
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.clients)) {
-      return { clients: [] };
+    ensureClientsFileExists();
+    const raw = fs.readFileSync(clientsFilePath, "utf8").trim();
+    if (!raw) {
+      return [];
     }
-    return {
-      clients: parsed.clients as Client[],
-    };
-  } catch (err) {
-    console.error("Failed to parse clients.json, resetting file.", err);
-    return { clients: [] };
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) {
+      console.error(
+        "🔴 clients.json is not an array. Resetting to empty array."
+      );
+      return [];
+    }
+    return parsed as Client[];
+  } catch (error) {
+    console.error(
+      "🔴 Failed to read clients.json. Returning empty array.",
+      error
+    );
+    return [];
   }
 }
 
-async function writeClientsFile(data: ClientsFileShape): Promise<void> {
-  await fs.writeFile(DATA_FILE_PATH, JSON.stringify(data, null, 2), "utf8");
+function writeClients(clients: Client[]) {
+  try {
+    ensureClientsFileExists();
+    fs.writeFileSync(
+      clientsFilePath,
+      JSON.stringify(clients, null, 2),
+      "utf8"
+    );
+  } catch (error) {
+    console.error("🔴 Failed to write clients.json:", error);
+  }
 }
 
-function generateClientId() {
-  return `client_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+function generateClientId(): string {
+  const ts = Date.now();
+  const random = Math.random().toString(36).slice(2, 8);
+  return `client_${ts}_${random}`;
 }
 
 /**
- * Create a new client. If a client with this email already exists,
- * we return the existing one to avoid duplicates.
+ * Create a new client or return existing one by email
  */
-export async function createClient(newClient: NewClient): Promise<Client> {
-  const data = await readClientsFile();
+export function createClient(newClient: NewClient): Client {
+  const clients = readClients();
 
-  const existing = data.clients.find(
+  const existing = clients.find(
     (c) => c.email.toLowerCase() === newClient.email.toLowerCase()
   );
   if (existing) {
     return existing;
   }
 
-  const now = new Date().toISOString();
   const client: Client = {
     id: generateClientId(),
-    email: newClient.email,
-    name: newClient.name,
-    createdAt: now,
-    qrEmailSent: false,
+    email: newClient.email.trim(),
+    name:
+      newClient.name && newClient.name.trim().length > 0
+        ? newClient.name.trim()
+        : undefined,
+    createdAt: new Date().toISOString(),
   };
 
-  data.clients.push(client);
-  await writeClientsFile(data);
+  clients.push(client);
+  writeClients(clients);
 
   return client;
 }
 
-export async function getClientById(id: string): Promise<Client | null> {
-  const data = await readClientsFile();
-  return data.clients.find((c) => c.id === id) ?? null;
+export function getClientById(id: string): Client | undefined {
+  const clients = readClients();
+  return clients.find((c) => c.id === id);
 }
 
-export async function getClientByEmail(email: string): Promise<Client | null> {
-  const data = await readClientsFile();
-  return (
-    data.clients.find(
-      (c) => c.email.toLowerCase() === email.toLowerCase()
-    ) ?? null
+export function getClientByEmail(email: string): Client | undefined {
+  const clients = readClients();
+  return clients.find(
+    (c) => c.email.toLowerCase() === email.toLowerCase()
   );
 }
 
-export async function getAllClients(): Promise<Client[]> {
-  const data = await readClientsFile();
-  return data.clients;
+export function getAllClients(): Client[] {
+  return readClients();
+}
+
+/**
+ * Find client by Stripe Connect account id (for future Connect flow)
+ */
+export function getClientByStripeAccountId(
+  stripeAccountId: string
+): Client | undefined {
+  const clients = readClients();
+  return clients.find((c) => c.stripeAccountId === stripeAccountId);
+}
+
+/**
+ * Update client by id with partial fields (for Connect / flags etc.)
+ */
+export function updateClient(
+  id: string,
+  updates: Partial<Client>
+): Client | null {
+  const clients = readClients();
+  const index = clients.findIndex((c) => c.id === id);
+
+  if (index === -1) {
+    return null;
+  }
+
+  const updated: Client = {
+    ...clients[index],
+    ...updates,
+  };
+
+  clients[index] = updated;
+  writeClients(clients);
+
+  return updated;
 }
 
