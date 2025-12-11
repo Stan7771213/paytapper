@@ -1,127 +1,113 @@
-import fs from "fs";
+// lib/clientStore.ts
+import fs from "fs/promises";
 import path from "path";
 
-export type ClientStatus = "pending" | "active" | "restricted";
+const DATA_FILE_PATH = path.join(process.cwd(), "data", "clients.json");
 
-export interface Client {
-  clientId: string;
-  stripeAccountId: string;
+export type Client = {
+  id: string; // clientId used in URLs and QR links
+  email: string;
   name?: string;
-  email?: string;
-  imageUrl?: string;
-  status: ClientStatus;
-  chargesEnabled: boolean;
-  payoutsEnabled: boolean;
-  createdAt: string; // ISO
-  updatedAt: string; // ISO
-}
+  createdAt: string; // ISO string
+  stripeAccountId?: string;
+  qrEmailSent?: boolean;
+};
 
-const DATA_DIR = path.join(process.cwd(), "data");
-const CLIENTS_FILE = path.join(DATA_DIR, "clients.json");
-const isProd = process.env.NODE_ENV === "production";
+export type NewClient = {
+  email: string;
+  name?: string;
+};
 
-function ensureDataFile() {
-  // В продакшене ничего не создаём на диске
-  if (isProd) return;
+type ClientsFileShape = {
+  clients: Client[];
+};
 
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-  if (!fs.existsSync(CLIENTS_FILE)) {
-    fs.writeFileSync(CLIENTS_FILE, "[]", "utf8");
-  }
-}
-
-function readAllClients(): Client[] {
+async function ensureFileExists() {
   try {
-    if (!isProd) {
-      // В dev гарантируем наличие файла
-      ensureDataFile();
-    }
-
-    const raw = fs.readFileSync(CLIENTS_FILE, "utf8");
-    if (!raw.trim()) return [];
-    return JSON.parse(raw) as Client[];
+    await fs.access(DATA_FILE_PATH);
   } catch {
-    // Если файла нет или ошибка чтения — просто считаем, что клиентов нет
-    return [];
+    const initial: ClientsFileShape = { clients: [] };
+    await fs.mkdir(path.dirname(DATA_FILE_PATH), { recursive: true });
+    await fs.writeFile(DATA_FILE_PATH, JSON.stringify(initial, null, 2), "utf8");
   }
 }
 
-function writeAllClients(clients: Client[]) {
-  // В продакшене файловая система read-only, ничего не пишем
-  if (isProd) return;
+async function readClientsFile(): Promise<ClientsFileShape> {
+  await ensureFileExists();
 
-  ensureDataFile();
-  fs.writeFileSync(CLIENTS_FILE, JSON.stringify(clients, null, 2), "utf8");
-}
+  const raw = await fs.readFile(DATA_FILE_PATH, "utf8");
 
-export function getClientById(clientId: string): Client | undefined {
-  const clients = readAllClients();
-  return clients.find((c) => c.clientId === clientId);
-}
-
-export function getClientByStripeAccountId(
-  stripeAccountId: string
-): Client | undefined {
-  const clients = readAllClients();
-  return clients.find((c) => c.stripeAccountId === stripeAccountId);
-}
-
-export function upsertClient(client: Client): Client {
-  const clients = readAllClients();
-  const index = clients.findIndex((c) => c.clientId === client.clientId);
-  if (index === -1) {
-    clients.push(client);
-  } else {
-    clients[index] = client;
+  if (!raw.trim()) {
+    return { clients: [] };
   }
-  writeAllClients(clients);
-  return client;
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.clients)) {
+      return { clients: [] };
+    }
+    return {
+      clients: parsed.clients as Client[],
+    };
+  } catch (err) {
+    console.error("Failed to parse clients.json, resetting file.", err);
+    return { clients: [] };
+  }
 }
 
-export function updateClient(
-  clientId: string,
-  partial: Partial<Client>
-): Client | undefined {
-  const clients = readAllClients();
-  const index = clients.findIndex((c) => c.clientId === clientId);
-  if (index === -1) return undefined;
-
-  const existing = clients[index];
-  const updated: Client = {
-    ...existing,
-    ...partial,
-    updatedAt: new Date().toISOString(),
-  };
-  clients[index] = updated;
-  writeAllClients(clients);
-  return updated;
+async function writeClientsFile(data: ClientsFileShape): Promise<void> {
+  await fs.writeFile(DATA_FILE_PATH, JSON.stringify(data, null, 2), "utf8");
 }
 
-export function createClientIfNotExists(params: {
-  clientId: string;
-  stripeAccountId: string;
-  name?: string;
-  email?: string;
-}): Client {
-  const existing = getClientById(params.clientId);
-  if (existing) return existing;
+function generateClientId() {
+  return `client_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/**
+ * Create a new client. If a client with this email already exists,
+ * we return the existing one to avoid duplicates.
+ */
+export async function createClient(newClient: NewClient): Promise<Client> {
+  const data = await readClientsFile();
+
+  const existing = data.clients.find(
+    (c) => c.email.toLowerCase() === newClient.email.toLowerCase()
+  );
+  if (existing) {
+    return existing;
+  }
 
   const now = new Date().toISOString();
   const client: Client = {
-    clientId: params.clientId,
-    stripeAccountId: params.stripeAccountId,
-    name: params.name,
-    email: params.email,
-    imageUrl: undefined,
-    status: "pending",
-    chargesEnabled: false,
-    payoutsEnabled: false,
+    id: generateClientId(),
+    email: newClient.email,
+    name: newClient.name,
     createdAt: now,
-    updatedAt: now,
+    qrEmailSent: false,
   };
 
-  return upsertClient(client);
+  data.clients.push(client);
+  await writeClientsFile(data);
+
+  return client;
+}
+
+export async function getClientById(id: string): Promise<Client | null> {
+  const data = await readClientsFile();
+  return data.clients.find((c) => c.id === id) ?? null;
+}
+
+export async function getClientByEmail(email: string): Promise<Client | null> {
+  const data = await readClientsFile();
+  return (
+    data.clients.find(
+      (c) => c.email.toLowerCase() === email.toLowerCase()
+    ) ?? null
+  );
+}
+
+export async function getAllClients(): Promise<Client[]> {
+  const data = await readClientsFile();
+  return data.clients;
 }
 

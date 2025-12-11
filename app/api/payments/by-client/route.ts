@@ -1,71 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPaymentsByClientId } from "@/lib/paymentStore";
+import { getPaymentsByClient } from "@/lib/paymentStore";
 
-export async function POST(req: NextRequest) {
+// GET /api/payments/by-client?clientId=xxx
+export async function GET(req: NextRequest) {
   try {
-    const { clientId } = await req.json();
+    const { searchParams } = new URL(req.url);
+    const clientId = searchParams.get("clientId");
 
     if (!clientId) {
       return NextResponse.json(
-        { error: "clientId is required" },
+        { error: "Missing clientId" },
         { status: 400 }
       );
     }
 
-    const payments = await getPaymentsByClientId(clientId);
-
-    const totalTips = payments.length;
-
-    const totalAmountGross = payments.reduce(
-      (sum, p) => sum + (p.amountTotal || 0),
-      0
-    );
-
-    const totalNetToClient = payments.reduce(
-      (sum, p) => sum + (p.clientAmount || 0),
-      0
-    );
-
-    const totalPlatformFee = payments.reduce(
-      (sum, p) => sum + (p.platformFeeAmount || 0),
-      0
-    );
-
-    const summary = {
-      totalTips,
-      totalAmountGross,
-      totalNetToClient,
-      totalPlatformFee,
-    };
+    const payments = await getPaymentsByClient(clientId);
 
     return NextResponse.json(
       {
         payments,
-
-        // Новые/говорящие поля
-        summary,
-        stats: summary,
-
-        // ИМЕННО эти поля ожидает dashboard/page.tsx:
-        clientId,
-        count: totalTips,
-        totalAmount: totalAmountGross,
-        totalClientAmount: totalNetToClient,
-        totalPlatformFee: totalPlatformFee,
-
-        // Дополнительно – альтернативные имена, вдруг пригодятся дальше
-        totalTips,
-        totalAmountGross,
-        totalNetAmount: totalNetToClient,
-        totalNetToClient,
-        platformFeeTotal: totalPlatformFee,
       },
       { status: 200 }
     );
-  } catch (error: any) {
-    console.error("Error in by-client route:", error);
+  } catch (err) {
+    console.error("Error in GET /api/payments/by-client:", err);
     return NextResponse.json(
-      { error: "Internal Server Error" },
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

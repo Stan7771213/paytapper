@@ -1,2 +1,46 @@
-[]
-
+{
+  "clients": [
+    {
+      "id": "client_1765467880663_eh24j3",
+      "email": "test@example.com",
+      "name": "Test Guide",
+      "createdAt": "2025-12-11T15:44:40.663Z",
+      "qrEmailSent": false
+    },
+    {
+      "id": "client_1765468890663_hma1un",
+      "email": "stas@stas.com",
+      "name": "Stas",
+      "createdAt": "2025-12-11T16:01:30.663Z",
+      "qrEmailSent": false
+    },
+    {
+      "id": "client_1765470192577_donmxu",
+      "email": "test-email+welcome1@paytapper.test",
+      "name": "Test Welcome",
+      "createdAt": "2025-12-11T16:23:12.577Z",
+      "qrEmailSent": false
+    },
+    {
+      "id": "client_1765470534595_wofg97",
+      "email": "test-email+welcome2@paytapper.test",
+      "name": "Test Welcome 2",
+      "createdAt": "2025-12-11T16:28:54.595Z",
+      "qrEmailSent": false
+    },
+    {
+      "id": "client_1765476665603_foz83d",
+      "email": "real-test-email@paytapper.test",
+      "name": "Resend Test",
+      "createdAt": "2025-12-11T18:11:05.603Z",
+      "qrEmailSent": false
+    },
+    {
+      "id": "client_1765477309442_gnj8d3",
+      "email": "stan.master4@gmail.com",
+      "name": "Stan",
+      "createdAt": "2025-12-11T18:21:49.442Z",
+      "qrEmailSent": false
+    }
+  ]
+}
