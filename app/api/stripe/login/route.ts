@@ -1,7 +1,7 @@
 // app/api/stripe/login/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import stripe from "@/lib/stripe";
+import { stripe } from "@/lib/stripe";
 import { getClientById } from "@/lib/clientStore";
 
 /**
