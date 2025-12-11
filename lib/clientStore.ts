@@ -74,7 +74,7 @@ function generateClientId(): string {
 }
 
 /**
- * Create a new client or return existing one by email
+ * Base function: create a new client or return existing one by email.
  */
 export function createClient(newClient: NewClient): Client {
   const clients = readClients();
@@ -100,6 +100,15 @@ export function createClient(newClient: NewClient): Client {
   writeClients(clients);
 
   return client;
+}
+
+/**
+ * Backward-compatible alias used in some API routes.
+ * It simply delegates to createClient(), which already
+ * "creates if not exists, otherwise returns existing".
+ */
+export function createClientIfNotExists(newClient: NewClient): Client {
+  return createClient(newClient);
 }
 
 export function getClientById(id: string): Client | undefined {
