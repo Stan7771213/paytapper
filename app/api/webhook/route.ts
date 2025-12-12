@@ -68,7 +68,6 @@ export async function POST(req: Request) {
 
     try {
       await addPayment({
-        id: intent.id,
         stripePaymentIntentId: intent.id,
         stripeCheckoutSessionId:
           (intent.metadata as any)?.checkoutSessionId ?? null,
