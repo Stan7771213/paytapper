@@ -1,5 +1,7 @@
+// app/api/webhook/route.ts
+
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
+import type Stripe from "stripe";
 import { addPayment } from "@/lib/paymentStore";
 import { stripe, stripeMode } from "@/lib/stripe";
 
@@ -7,25 +9,31 @@ import { stripe, stripeMode } from "@/lib/stripe";
 const PLATFORM_FEE_PERCENT = 0.1;
 
 function getWebhookSecret(): string {
-  if (stripeMode === "live") {
+  const mode = stripeMode === "live" ? "live" : "test";
+
+  if (mode === "live") {
     const liveSecret =
       process.env.STRIPE_WEBHOOK_SECRET_LIVE ||
       process.env.STRIPE_WEBHOOK_SECRET;
+
     if (!liveSecret) {
       throw new Error(
         "Stripe live webhook secret is not set. Please configure STRIPE_WEBHOOK_SECRET_LIVE or STRIPE_WEBHOOK_SECRET."
       );
     }
+
     return liveSecret;
   } else {
     const testSecret =
       process.env.STRIPE_WEBHOOK_SECRET_TEST ||
       process.env.STRIPE_WEBHOOK_SECRET;
+
     if (!testSecret) {
       throw new Error(
         "Stripe test webhook secret is not set. Please configure STRIPE_WEBHOOK_SECRET_TEST or STRIPE_WEBHOOK_SECRET."
       );
     }
+
     return testSecret;
   }
 }
@@ -46,7 +54,7 @@ export async function POST(req: Request) {
 
     event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
   } catch (err: any) {
-    console.error("Webhook signature error:", err.message);
+    console.error("Webhook signature error:", err?.message || err);
     return new NextResponse("Signature error", { status: 400 });
   }
 
@@ -56,20 +64,25 @@ export async function POST(req: Request) {
 
     const clientId = intent.metadata?.clientId;
     if (!clientId) {
-      console.error("payment_intent.succeeded without clientId in metadata");
+      console.error(
+        "payment_intent.succeeded without clientId in metadata"
+      );
       return NextResponse.json({ received: true, skipped: true });
     }
 
-    const grossAmount = intent.amount_received ?? intent.amount ?? 0;
+    const grossAmount =
+      intent.amount_received ?? (intent as any).amount ?? 0;
     const currency = (intent.currency || "eur").toLowerCase();
 
-    const platformFeeAmount = Math.round(grossAmount * PLATFORM_FEE_PERCENT);
+    const platformFeeAmount = Math.round(
+      grossAmount * PLATFORM_FEE_PERCENT
+    );
     const clientAmount = grossAmount - platformFeeAmount;
 
     try {
       await addPayment({
         stripePaymentIntentId: intent.id,
-        stripeCheckoutSessionId:
+        checkoutSessionId:
           (intent.metadata as any)?.checkoutSessionId ?? null,
         clientId,
         amountTotal: grossAmount,
@@ -81,7 +94,9 @@ export async function POST(req: Request) {
       });
     } catch (error) {
       console.error("Failed to store payment:", error);
-      return new NextResponse("Failed to store payment", { status: 500 });
+      return new NextResponse("Failed to store payment", {
+        status: 500,
+      });
     }
   }
 
