@@ -77,14 +77,23 @@ export async function POST(req: Request) {
 
   try {
     await addPayment({
-      clientId,
-      amountTotal: grossAmount,
-      currency,
-      platformFeeAmount,
-      clientAmount,
-      status: "succeeded",
-      type: "tip",
-    });
+  clientId,
+  amountCents: grossAmount,
+  currency,
+  platformFeeCents: platformFeeAmount,
+  clientAmountCents: clientAmount,
+  status: "succeeded",
+  type: "tip",
+  stripePaymentIntentId: intent.id,
+  createdAt: new Date().toISOString(),
+  raw: {
+    eventType: event.type,
+    paymentIntentId: intent.id,
+    checkoutSessionId: (intent.metadata as any)?.checkoutSessionId ?? null,
+    metadata: intent.metadata ?? null,
+  },
+});
+
   } catch (error) {
     console.error("❌ Failed to store payment:", error);
     return new NextResponse("Failed to store payment", { status: 500 });
