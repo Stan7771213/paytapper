@@ -101,6 +101,7 @@ export async function POST(req: Request) {
       platformFeeCents,
       netAmountCents,
       status: "paid",
+      createdAt: new Date().toISOString(),
       paidAt: new Date().toISOString(),
       stripe: {
         paymentIntentId,
