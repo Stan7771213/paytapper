@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getPaymentsByClient } from "@/lib/paymentStore";
+import { getPaymentsByClientId } from "@/lib/paymentStore";
 
 // GET /api/payments/by-client?clientId=xxx
 export async function GET(req: NextRequest) {
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    const payments = await getPaymentsByClient(clientId);
+    const payments = await getPaymentsByClientId(clientId);
 
     return NextResponse.json(
       {

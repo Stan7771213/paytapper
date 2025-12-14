@@ -1,0 +1,244 @@
+# Paytapper — Architecture & Core Design
+
+## Overview
+Paytapper is a web platform for accepting tips and small payments via QR codes and personal links.
+The product is built as a **client-centric platform** (guides, drivers, creators), not end-customers.
+
+Core goals of the architecture:
+- predictable behavior
+- strict typing
+- zero legacy ambiguity
+- stable builds (local + Vercel)
+- easy future extension (DB, auth, payouts, branding)
+
+---
+
+## Tech Stack
+- Next.js 16 (App Router, Turbopack)
+- TypeScript (strict mode, no `any`)
+- Stripe (test + live)
+- Resend (emails)
+- Vercel (deployment)
+- No database (JSON storage for now)
+
+---
+
+## Project Principles
+1. **Types first, logic second**
+2. **One source of truth for domain models**
+3. **No legacy fields**
+4. **No silent fallbacks**
+5. **No placeholders in persisted data**
+6. **One small task → verification → next step**
+
+---
+
+## Source of Truth
+All domain models are defined in:
+
+`lib/types.ts`
+
+No other file may redefine or extend domain types.
+
+---
+
+## Domain Models
+
+### Client
+Represents a person or entity receiving tips.
+
+```ts
+Client {
+  id: string
+  displayName: string
+  email?: string
+  isActive: boolean
+  createdAt: string
+  payoutMode: "direct" | "platform"
+
+  stripe?: {
+    accountId?: string
+  }
+
+  branding?: {
+    title?: string
+    description?: string
+    avatarUrl?: string
+  }
+}
+NewClient
+Used when creating a client.
+NewClient {
+  displayName: string
+  email?: string
+  payoutMode: "direct" | "platform"
+}
+Payment
+Represents a persisted payment record created/updated by the webhook.
+Canonical identifier: stripe.paymentIntentId (required)
+Payment {
+  id: string
+  clientId: string
+
+  amountCents: number
+  currency: "eur"
+
+  platformFeeCents: number
+  netAmountCents: number
+
+  status: "created" | "paid" | "failed" | "refunded"
+
+  stripe: {
+    paymentIntentId: string   // canonical key
+    checkoutSessionId: string // resolved deterministically
+  }
+
+  createdAt: string
+  paidAt?: string
+
+  payer?: {
+    email?: string
+    country?: string
+  }
+}
+NewPayment
+Used internally before persistence.
+NewPayment {
+  clientId: string
+  amountCents: number
+  currency: "eur"
+}
+Storage Layer
+Clients
+data/clients.json
+Format:
+[
+  { "Client": "..." }
+]
+Handled only by:
+lib/clientStore.ts
+Payments
+data/payments.json
+Format:
+[
+  { "Payment": "..." }
+]
+Handled only by:
+lib/paymentStore.ts
+Key rule: Payments are upserted by paymentIntentId (canonical key).
+No placeholder values (e.g. "pending") are ever persisted.
+API Routes
+Clients
+POST /api/clients
+Creates a client and returns:
+clientId
+tipUrl: /tip/{clientId}
+dashboardUrl: /client/{clientId}/dashboard
+Payments
+Create Checkout Session
+POST /api/payments/checkout
+Responsibilities:
+validate input (clientId, amount)
+create Stripe Checkout Session
+set minimal required metadata
+Metadata rules:
+required: clientId
+forbidden: placeholder values (e.g. "pending")
+do not attempt to store checkoutSessionId in metadata (no post-create patching)
+The system does not rely on metadata.checkoutSessionId at all.
+Payments by Client
+GET /api/payments/by-client?clientId=...
+Returns all payments for dashboard statistics.
+Stripe Connect
+POST /api/connect/onboard
+GET /api/connect/status
+Used to connect a client’s Stripe account.
+Webhook (Stripe)
+POST /api/webhook
+Listens to:
+payment_intent.succeeded
+(optionally: payment_intent.payment_failed, refunds later)
+Responsibilities:
+validate Stripe signature
+extract paymentIntentId from the event (canonical key)
+determine clientId:
+prefer event.data.object.metadata.clientId if present
+otherwise resolve it from the associated Checkout Session (see below)
+deterministically resolve checkoutSessionId:
+if present on the webhook object / metadata, use it
+else fetch it via Stripe API:
+stripe.checkout.sessions.list({ payment_intent: paymentIntentId, limit: 1 })
+calculate platform fee (10%) server-side
+upsert payment via paymentStore using:
+upsertPaymentByPaymentIntentId(paymentIntentId, data)
+never persist placeholders; all persisted Stripe IDs must be real
+Frontend Pages
+Landing
+/
+Marketing only. No core logic.
+Tip Page
+/tip/[clientId]
+Customer-facing payment page.
+fixed amounts
+custom amount
+Stripe Checkout redirect
+Success Page
+/success
+Displayed after Stripe redirect.
+Client Dashboard
+/client/[clientId]/dashboard
+Displays:
+QR code & payment link
+Stripe connection status
+payment statistics
+recent payments
+Stripe Configuration
+Defined in:
+lib/stripe.ts
+Modes
+STRIPE_MODE = "test" | "live"
+default = "test"
+Keys
+Test:
+STRIPE_SECRET_KEY_TEST
+STRIPE_WEBHOOK_SECRET_TEST
+Live:
+STRIPE_SECRET_KEY_LIVE
+STRIPE_WEBHOOK_SECRET_LIVE
+No legacy Stripe env vars are allowed. Use STRIPE_SECRET_KEY_TEST and STRIPE_SECRET_KEY_LIVE only, selected strictly via STRIPE_MODE.
+
+Platform Fee
+Fixed: 10%
+defined once in backend logic
+always calculated server-side
+Deployment Rules
+npm run build must pass locally
+vercel build must pass before production deploy
+no untyped fields allowed
+no silent breaking changes
+architecture changes: update this document first, then code
+Current Development Focus
+Core stability (test + live):
+create client
+open tip page
+complete payment
+webhook writes/updates payment deterministically (canonical paymentIntentId)
+dashboard reflects payment
+Only after this:
+UI polishing
+branding
+auth
+database migration
+Non-Goals (for now)
+Authentication
+Multi-currency
+Refunds
+Invoices
+Subscriptions
+These will be added only after core stability.
+Summary
+Paytapper architecture prioritizes:
+clarity
+correctness
+long-term maintainability
+No feature is allowed to compromise these principles.

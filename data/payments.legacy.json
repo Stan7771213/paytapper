@@ -1,0 +1,58 @@
+[
+  {
+    "id": "pay_1765053378513",
+    "createdAt": "2025-12-06T20:36:18.513Z",
+    "stripePaymentIntentId": "pi_3SbSDEAwUyTrst9S1iCHlAWU",
+    "stripeCheckoutSessionId": "cs_test_a1wASwhtcHIn8GOvTAyhPDP5I1C4ocDEhe5kCnDr4JJ4g14KDFxdegXmOX",
+    "amountTotal": 1000,
+    "currency": "eur",
+    "status": "succeeded"
+  },
+  {
+    "id": "pi_3SbSMeAwUyTrst9S4gt7yqHC",
+    "createdAt": "2025-12-06T20:46:02.743Z",
+    "stripePaymentIntentId": null,
+    "stripeCheckoutSessionId": null,
+    "clientId": "user_1765053287197",
+    "currency": "eur",
+    "status": "succeeded"
+  },
+  {
+    "id": "pi_3SbeU2AwUyTrst9S3m0yJBze",
+    "createdAt": "2025-12-07T09:42:28.474Z",
+    "stripePaymentIntentId": "pi_3SbeU2AwUyTrst9S3m0yJBze",
+    "stripeCheckoutSessionId": null,
+    "clientId": "user_1765053287197",
+    "amountTotal": 500,
+    "currency": "eur",
+    "platformFeeAmount": 50,
+    "clientAmount": 450,
+    "status": "succeeded"
+  },
+  {
+    "id": "pi_3Sbjt2AwUyTrst9S08wdRRXs",
+    "stripePaymentIntentId": "pi_3Sbjt2AwUyTrst9S08wdRRXs",
+    "stripeCheckoutSessionId": null,
+    "clientId": "user_1765053287197",
+    "amountTotal": 500,
+    "currency": "eur",
+    "platformFeeAmount": 50,
+    "clientAmount": 450,
+    "status": "succeeded",
+    "type": "tip",
+    "createdAt": "2025-12-07T15:28:39.949Z"
+  },
+  {
+    "id": "pi_3ScPTbAwUyTrst9S1BbKXbt6",
+    "stripePaymentIntentId": "pi_3ScPTbAwUyTrst9S1BbKXbt6",
+    "stripeCheckoutSessionId": null,
+    "clientId": "test-client-live-prep",
+    "amountTotal": 500,
+    "currency": "eur",
+    "platformFeeAmount": 50,
+    "clientAmount": 450,
+    "status": "succeeded",
+    "type": "tip",
+    "createdAt": "2025-12-09T11:53:08.991Z"
+  }
+]

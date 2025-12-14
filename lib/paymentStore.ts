@@ -1,115 +1,131 @@
 // lib/paymentStore.ts
-import fs from "fs/promises";
-import path from "path";
 
-const DATA_FILE_PATH = path.join(process.cwd(), "data", "payments.json");
+import fs from "node:fs";
+import path from "node:path";
+import { randomUUID } from "node:crypto";
+import { Payment, PaymentStatus } from "./types";
 
-export type PaymentStatus = "succeeded" | "pending" | "failed" | string;
-export type PaymentType = "tip" | "payment" | string;
+const DATA_PATH = path.join(process.cwd(), "data", "payments.json");
 
-export type Payment = {
-  id: string;
-  clientId: string;
-  amountCents: number;
-  platformFeeCents: number;
-  clientAmountCents: number;
-  currency: string;
-  status: PaymentStatus;
-  type: PaymentType;
-  stripePaymentIntentId?: string;
-  createdAt: string; // ISO string
-  raw?: unknown;
-};
-
-export type NewPayment = {
-  clientId: string;
-  amountCents: number;
-  platformFeeCents: number;
-  clientAmountCents: number;
-  currency: string;
-  status: PaymentStatus;
-  type: PaymentType;
-  stripePaymentIntentId?: string;
-  createdAt?: string;
-  raw?: unknown;
-};
-
-type PaymentsFileShape = {
-  payments: Payment[];
-};
-
-async function ensureFileExists() {
-  try {
-    await fs.access(DATA_FILE_PATH);
-  } catch {
-    const initial: PaymentsFileShape = { payments: [] };
-    await fs.mkdir(path.dirname(DATA_FILE_PATH), { recursive: true });
-    await fs.writeFile(DATA_FILE_PATH, JSON.stringify(initial, null, 2), "utf8");
-  }
+function readPayments(): Payment[] {
+  if (!fs.existsSync(DATA_PATH)) return [];
+  const raw = fs.readFileSync(DATA_PATH, "utf-8");
+  return JSON.parse(raw) as Payment[];
 }
 
-async function readPaymentsFile(): Promise<PaymentsFileShape> {
-  await ensureFileExists();
-
-  const raw = await fs.readFile(DATA_FILE_PATH, "utf8");
-
-  if (!raw.trim()) {
-    return { payments: [] };
-  }
-
-  try {
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.payments)) {
-      return { payments: [] };
-    }
-    return {
-      payments: parsed.payments as Payment[],
-    };
-  } catch (err) {
-    console.error("Failed to parse payments.json, resetting file.", err);
-    return { payments: [] };
-  }
+function writePayments(payments: Payment[]): void {
+  fs.writeFileSync(DATA_PATH, JSON.stringify(payments, null, 2) + "\n");
 }
 
-async function writePaymentsFile(data: PaymentsFileShape): Promise<void> {
-  await fs.writeFile(DATA_FILE_PATH, JSON.stringify(data, null, 2), "utf8");
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+// ---------- Public API ----------
+
+export function getAllPayments(): Payment[] {
+  return readPayments();
+}
+
+export function getPaymentsByClientId(clientId: string): Payment[] {
+  return readPayments()
+    .filter((p) => p.clientId === clientId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+export function getPaymentByPaymentIntentId(paymentIntentId: string): Payment | null {
+  const payments = readPayments();
+  return payments.find((p) => p.stripe.paymentIntentId === paymentIntentId) ?? null;
 }
 
 /**
- * Add a new payment entry to payments.json
+ * Upsert by paymentIntentId (canonical Stripe identifier).
+ * If payment exists -> update. If not -> create.
+ *
+ * Architectural guarantees:
+ * - never persists placeholder values
+ * - deterministic key: paymentIntentId
+ * - checkoutSessionId must be real (cs_*)
  */
-export async function addPayment(newPayment: NewPayment): Promise<Payment> {
-  const now = new Date().toISOString();
-  const id = `pay_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+export function upsertPaymentByPaymentIntentId(
+  paymentIntentId: string,
+  data: Omit<Payment, "id" | "createdAt">
+): Payment {
+  if (!paymentIntentId || paymentIntentId.trim().length === 0) {
+    throw new Error("paymentIntentId is required");
+  }
 
-  const payment: Payment = {
-    id,
-    createdAt: newPayment.createdAt ?? now,
-    ...newPayment,
+  if (data.stripe.paymentIntentId !== paymentIntentId) {
+    throw new Error("stripe.paymentIntentId must match paymentIntentId argument");
+  }
+
+  const checkoutSessionId = data.stripe.checkoutSessionId;
+  if (!checkoutSessionId || !checkoutSessionId.startsWith("cs_")) {
+    throw new Error("stripe.checkoutSessionId must be a real Checkout Session id (cs_*)");
+  }
+
+  const payments = readPayments();
+  const existingIndex = payments.findIndex(
+    (p) => p.stripe.paymentIntentId === paymentIntentId
+  );
+
+  if (existingIndex === -1) {
+    const created: Payment = {
+      id: randomUUID(),
+      createdAt: nowIso(),
+      ...data,
+      stripe: {
+        paymentIntentId,
+        checkoutSessionId,
+      },
+    };
+
+    payments.push(created);
+    writePayments(payments);
+    return created;
+  }
+
+  const current = payments[existingIndex];
+
+  const updated: Payment = {
+    ...current,
+    ...data,
+    stripe: {
+      paymentIntentId,
+      checkoutSessionId,
+    },
   };
 
-  const data = await readPaymentsFile();
-  data.payments.push(payment);
-  await writePaymentsFile(data);
-
-  return payment;
+  payments[existingIndex] = updated;
+  writePayments(payments);
+  return updated;
 }
 
 /**
- * Get all payments for a specific clientId.
+ * Optional helper (not currently used by routes, but kept for consistency)
  */
-export async function getPaymentsByClient(
-  clientId: string
-): Promise<Payment[]> {
-  const data = await readPaymentsFile();
-  return data.payments.filter((p) => p.clientId === clientId);
-}
+export function updatePaymentStatusByPaymentIntentId(
+  paymentIntentId: string,
+  status: PaymentStatus,
+  paidAt?: string
+): Payment {
+  const payments = readPayments();
+  const index = payments.findIndex(
+    (p) => p.stripe.paymentIntentId === paymentIntentId
+  );
 
-/**
- * Get all payments (might be useful later).
- */
-export async function getAllPayments(): Promise<Payment[]> {
-  const data = await readPaymentsFile();
-  return data.payments;
-}
+  if (index === -1) {
+    throw new Error(`Payment not found for paymentIntentId=${paymentIntentId}`);
+  }
 
+  const current = payments[index];
+  const updated: Payment = {
+    ...current,
+    status,
+    paidAt: paidAt ?? (status === "paid" ? nowIso() : current.paidAt),
+  };
+
+  payments[index] = updated;
+  writePayments(payments);
+  return updated;
+}

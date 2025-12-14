@@ -33,10 +33,11 @@ export default async function ClientDashboardPage({
           <strong>Client ID:</strong> {clientId}
         </p>
         {client?.displayName && (
-          <p>
-            <strong>Name:</strong> {client.displayName}
-          </p>
-        )}
+  <p>
+    <strong>Name:</strong> {client.displayName}
+  </p>
+)}
+
         {client?.email && (
           <p>
             <strong>Email:</strong> {client.email}
@@ -57,7 +58,7 @@ export default async function ClientDashboardPage({
           <>
             <p>
               <strong>Stripe account ID:</strong>{" "}
-              {client.stripe?.accountId ?? "—"}
+              {client.stripeAccountId}
             </p>
           </>
         ) : (

@@ -1,58 +1,62 @@
 [
   {
-    "id": "pay_1765053378513",
-    "createdAt": "2025-12-06T20:36:18.513Z",
-    "stripePaymentIntentId": "pi_3SbSDEAwUyTrst9S1iCHlAWU",
-    "stripeCheckoutSessionId": "cs_test_a1wASwhtcHIn8GOvTAyhPDP5I1C4ocDEhe5kCnDr4JJ4g14KDFxdegXmOX",
-    "amountTotal": 1000,
+    "id": "19c3fdd4-ef0c-4d24-9117-ff37a107f7a7",
+    "clientId": "966dcec2-a739-461a-aa5d-fb3600bf3292",
+    "amountCents": 500,
     "currency": "eur",
-    "status": "succeeded"
+    "platformFeeCents": 50,
+    "netAmountCents": 450,
+    "status": "paid",
+    "stripe": {
+      "checkoutSessionId": "cs_test_a1VPHEbdXBxUfdml524hhmWrrWNM6S5UAhAnqELMEYtjBVbJp0y2QJfUu8",
+      "paymentIntentId": "pi_3SdxuxAwUyTrst9S0QKqZnTg"
+    },
+    "createdAt": "2025-12-13T18:51:48.731Z",
+    "paidAt": "2025-12-13T18:51:48.730Z"
   },
   {
-    "id": "pi_3SbSMeAwUyTrst9S4gt7yqHC",
-    "createdAt": "2025-12-06T20:46:02.743Z",
-    "stripePaymentIntentId": null,
-    "stripeCheckoutSessionId": null,
+    "id": "9f9962f5-9109-402f-b4ca-b4a09eac1037",
+    "createdAt": "2025-12-14T11:23:26.659Z",
     "clientId": "user_1765053287197",
+    "amountCents": 500,
     "currency": "eur",
-    "status": "succeeded"
+    "platformFeeCents": 50,
+    "netAmountCents": 450,
+    "status": "paid",
+    "paidAt": "2025-12-14T11:23:26.659Z",
+    "stripe": {
+      "paymentIntentId": "pi_3SeDOaAwUyTrst9S3NJFzJkw",
+      "checkoutSessionId": "cs_test_a19tqr7ewqTpuKWecdlL2CTpoMHAf2P3QKBIwW3dXDESGdX5Gl1jZmSNlX"
+    }
   },
   {
-    "id": "pi_3SbeU2AwUyTrst9S3m0yJBze",
-    "createdAt": "2025-12-07T09:42:28.474Z",
-    "stripePaymentIntentId": "pi_3SbeU2AwUyTrst9S3m0yJBze",
-    "stripeCheckoutSessionId": null,
+    "id": "541d91da-ecc5-41fb-87d7-2e34bacbbe18",
+    "createdAt": "2025-12-14T11:51:39.204Z",
     "clientId": "user_1765053287197",
-    "amountTotal": 500,
+    "amountCents": 500,
     "currency": "eur",
-    "platformFeeAmount": 50,
-    "clientAmount": 450,
-    "status": "succeeded"
+    "platformFeeCents": 50,
+    "netAmountCents": 450,
+    "status": "paid",
+    "paidAt": "2025-12-14T11:51:39.203Z",
+    "stripe": {
+      "paymentIntentId": "pi_3SeDptAwUyTrst9S29N43G1G",
+      "checkoutSessionId": "cs_test_a1iOduiagiuVEkXBAqxNCeuS0sTVpJ6lgmT2xLEBHyBx9dbtpINAgCkC0X"
+    }
   },
   {
-    "id": "pi_3Sbjt2AwUyTrst9S08wdRRXs",
-    "stripePaymentIntentId": "pi_3Sbjt2AwUyTrst9S08wdRRXs",
-    "stripeCheckoutSessionId": null,
+    "id": "a2710d8a-488c-4cfe-98fb-743b2d585d92",
+    "createdAt": "2025-12-14T11:55:37.250Z",
     "clientId": "user_1765053287197",
-    "amountTotal": 500,
+    "amountCents": 500,
     "currency": "eur",
-    "platformFeeAmount": 50,
-    "clientAmount": 450,
-    "status": "succeeded",
-    "type": "tip",
-    "createdAt": "2025-12-07T15:28:39.949Z"
-  },
-  {
-    "id": "pi_3ScPTbAwUyTrst9S1BbKXbt6",
-    "stripePaymentIntentId": "pi_3ScPTbAwUyTrst9S1BbKXbt6",
-    "stripeCheckoutSessionId": null,
-    "clientId": "test-client-live-prep",
-    "amountTotal": 500,
-    "currency": "eur",
-    "platformFeeAmount": 50,
-    "clientAmount": 450,
-    "status": "succeeded",
-    "type": "tip",
-    "createdAt": "2025-12-09T11:53:08.991Z"
+    "platformFeeCents": 50,
+    "netAmountCents": 450,
+    "status": "paid",
+    "paidAt": "2025-12-14T11:55:37.249Z",
+    "stripe": {
+      "paymentIntentId": "pi_3SeDtjAwUyTrst9S0wWtLymw",
+      "checkoutSessionId": "cs_test_a1Hq49IXVu0u49vcDdpHTKI4ycgn6enXAonzhxFllOKgIKg93GzLlMmycn"
+    }
   }
 ]

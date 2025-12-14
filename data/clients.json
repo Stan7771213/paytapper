@@ -1,46 +1,74 @@
-{
-  "clients": [
-    {
-      "id": "client_1765467880663_eh24j3",
-      "email": "test@example.com",
-      "name": "Test Guide",
-      "createdAt": "2025-12-11T15:44:40.663Z",
-      "qrEmailSent": false
-    },
-    {
-      "id": "client_1765468890663_hma1un",
-      "email": "stas@stas.com",
-      "name": "Stas",
-      "createdAt": "2025-12-11T16:01:30.663Z",
-      "qrEmailSent": false
-    },
-    {
-      "id": "client_1765470192577_donmxu",
-      "email": "test-email+welcome1@paytapper.test",
-      "name": "Test Welcome",
-      "createdAt": "2025-12-11T16:23:12.577Z",
-      "qrEmailSent": false
-    },
-    {
-      "id": "client_1765470534595_wofg97",
-      "email": "test-email+welcome2@paytapper.test",
-      "name": "Test Welcome 2",
-      "createdAt": "2025-12-11T16:28:54.595Z",
-      "qrEmailSent": false
-    },
-    {
-      "id": "client_1765476665603_foz83d",
-      "email": "real-test-email@paytapper.test",
-      "name": "Resend Test",
-      "createdAt": "2025-12-11T18:11:05.603Z",
-      "qrEmailSent": false
-    },
-    {
-      "id": "client_1765477309442_gnj8d3",
-      "email": "stan.master4@gmail.com",
-      "name": "Stan",
-      "createdAt": "2025-12-11T18:21:49.442Z",
-      "qrEmailSent": false
-    }
-  ]
-}
+[
+  {
+    "id": "client_1765467880663_eh24j3",
+    "displayName": "Test Guide",
+    "email": "test@example.com",
+    "isActive": true,
+    "createdAt": "2025-12-11T15:44:40.663Z",
+    "payoutMode": "platform",
+    "stripe": {}
+  },
+  {
+    "id": "client_1765468890663_hma1un",
+    "displayName": "Stas",
+    "email": "stas@stas.com",
+    "isActive": true,
+    "createdAt": "2025-12-11T16:01:30.663Z",
+    "payoutMode": "platform",
+    "stripe": {}
+  },
+  {
+    "id": "client_1765470192577_donmxu",
+    "displayName": "Test Welcome",
+    "email": "test-email+welcome1@paytapper.test",
+    "isActive": true,
+    "createdAt": "2025-12-11T16:23:12.577Z",
+    "payoutMode": "platform",
+    "stripe": {}
+  },
+  {
+    "id": "client_1765470534595_wofg97",
+    "displayName": "Test Welcome 2",
+    "email": "test-email+welcome2@paytapper.test",
+    "isActive": true,
+    "createdAt": "2025-12-11T16:28:54.595Z",
+    "payoutMode": "platform",
+    "stripe": {}
+  },
+  {
+    "id": "client_1765476665603_foz83d",
+    "displayName": "Resend Test",
+    "email": "real-test-email@paytapper.test",
+    "isActive": true,
+    "createdAt": "2025-12-11T18:11:05.603Z",
+    "payoutMode": "platform",
+    "stripe": {}
+  },
+  {
+    "id": "client_1765477309442_gnj8d3",
+    "displayName": "Stan",
+    "email": "stan.master4@gmail.com",
+    "isActive": true,
+    "createdAt": "2025-12-11T18:21:49.442Z",
+    "payoutMode": "platform",
+    "stripe": {}
+  },
+  {
+    "id": "4eba4bda-c68e-41d1-87f9-e2d209911bb9",
+    "displayName": "Stripe Test Client",
+    "email": "stripe-test@example.com",
+    "payoutMode": "platform",
+    "isActive": true,
+    "createdAt": "2025-12-13T17:49:13.284Z",
+    "stripe": {}
+  },
+  {
+    "id": "966dcec2-a739-461a-aa5d-fb3600bf3292",
+    "displayName": "Stripe Test Client",
+    "email": "stripe-test@example.com",
+    "payoutMode": "platform",
+    "isActive": true,
+    "createdAt": "2025-12-13T17:50:42.099Z",
+    "stripe": {}
+  }
+]
