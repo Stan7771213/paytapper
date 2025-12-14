@@ -94,7 +94,7 @@ export async function POST(req: Request) {
   const netAmountCents = grossAmount - platformFeeCents;
 
   try {
-    await await upsertPaymentByPaymentIntentId(paymentIntentId, {
+    await upsertPaymentByPaymentIntentId(paymentIntentId, {
       clientId,
       amountCents: grossAmount,
       currency: "eur",
