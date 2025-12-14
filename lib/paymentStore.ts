@@ -37,6 +37,7 @@ export async function upsertPaymentByPaymentIntentId(
       ...payments[idx],
       ...input,
       id: payments[idx].id,
+      createdAt: payments[idx].createdAt,
     };
   } else {
     payments.push({
