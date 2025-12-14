@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
         ? body.email.trim()
         : undefined;
 
-    const client = createClient({
+    const client = await createClient({
       displayName,
       email,
       payoutMode: body.payoutMode,

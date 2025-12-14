@@ -70,5 +70,12 @@
     "isActive": true,
     "createdAt": "2025-12-13T17:50:42.099Z",
     "stripe": {}
+  },
+  {
+    "id": "d46e8479-6e22-47b6-9997-b462923d4930",
+    "displayName": "LOCAL Storage Test",
+    "payoutMode": "platform",
+    "isActive": true,
+    "createdAt": "2025-12-14T17:13:13.930Z"
   }
 ]

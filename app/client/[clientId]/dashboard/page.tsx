@@ -21,7 +21,7 @@ export default async function ClientDashboardPage({
     | string[]
     | undefined;
 
-  const client = getClientById(clientId);
+  const client = await getClientById(clientId);
 
   return (
     <main className="max-w-xl mx-auto p-6 space-y-6">

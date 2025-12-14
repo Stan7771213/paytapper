@@ -21,6 +21,8 @@ Core goals of the architecture:
 - Vercel (deployment)
 - No database (JSON storage for now)
 
+Production note (Vercel): the deployed filesystem is read-only (EROFS). Therefore production must use remote JSON storage (e.g. Vercel Blob) while keeping the same JSON format. Local development can use filesystem JSON.
+
 ---
 
 ## Project Principles
