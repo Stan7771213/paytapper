@@ -240,6 +240,11 @@ Environment sanity guard (v1)
 - No silent fallbacks; fail fast
 - No changes to checkout or webhook logic
 
+Live-mode deploy confirmation guard (v1)
+- If STRIPE_MODE is "live", the app must require PAYTAPPER_LIVE_ACK=1 (explicit acknowledgement)
+- If missing, lib/stripe.ts must throw a clear Error to prevent accidental live deployments
+
+
 Modes
 STRIPE_MODE = "test" | "live"
 default = "test"
