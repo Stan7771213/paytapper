@@ -1,6 +1,6 @@
 import { getClientById } from "@/lib/clientStore";
 import { getPaymentsByClientId } from "@/lib/paymentStore";
-import type { Payment } from "@/lib/types";
+import type { Client, Payment } from "@/lib/types";
 import { StartOnboardingButton } from "./start-onboarding-button";
 import { OpenStripeDashboardButton } from "./open-stripe-dashboard-button";
 import { DownloadQrPngButton } from "./download-qr-png-button";
@@ -54,6 +54,75 @@ function getPaymentSortKey(p: Payment): number {
   return Number.isFinite(ms) ? ms : 0;
 }
 
+function BrandingPreview({
+  branding,
+  displayName,
+}: {
+  branding?: Client["branding"];
+  displayName?: string;
+}) {
+  const title = branding?.title ?? displayName ?? "Paytapper";
+  const description = branding?.description;
+  const avatarUrl = branding?.avatarUrl;
+
+  const hasAnyBranding = Boolean(branding?.title || branding?.description || branding?.avatarUrl);
+
+  return (
+    <section className="border rounded-lg p-4 space-y-3">
+      <h2 className="font-semibold">Branding preview</h2>
+
+      {!hasAnyBranding ? (
+        <p className="text-sm text-gray-600">
+          No branding is set for this client yet. The tip page will use a default
+          Paytapper look.
+        </p>
+      ) : (
+        <p className="text-sm text-gray-600">
+          This is how your tip page header will look to guests.
+        </p>
+      )}
+
+      <div className="rounded-xl border bg-white p-4">
+        <div className="flex items-start gap-3">
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={`${title} avatar`}
+              className="h-12 w-12 rounded-full border object-cover"
+            />
+          ) : (
+            <div
+              aria-hidden="true"
+              className="h-12 w-12 rounded-full border bg-gray-100"
+            />
+          )}
+
+          <div className="min-w-0">
+            <p className="text-lg font-semibold text-gray-900">{title}</p>
+            <p className="text-sm text-gray-600">
+              {description ? description : "Leave a tip or send a small payment via Stripe."}
+            </p>
+          </div>
+        </div>
+
+        {hasAnyBranding ? (
+          <div className="pt-3 text-xs text-gray-500 space-y-1">
+            <p>
+              <strong>Title:</strong> {branding?.title ?? "—"}
+            </p>
+            <p>
+              <strong>Description:</strong> {branding?.description ?? "—"}
+            </p>
+            <p className="break-all">
+              <strong>Avatar URL:</strong> {branding?.avatarUrl ?? "—"}
+            </p>
+          </div>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 function PaymentStats({ payments }: { payments: Payment[] }) {
   const total = payments.length;
   const paid = payments.filter((p) => p.status === "paid");
@@ -96,7 +165,9 @@ function PaymentStats({ payments }: { payments: Payment[] }) {
           <div className="rounded-md border p-3">
             <p className="text-xs text-gray-600">Last payment</p>
             <p className="text-sm font-medium">
-              {lastPayment ? formatIsoOrDash(lastPayment.paidAt ?? lastPayment.createdAt) : "—"}
+              {lastPayment
+                ? formatIsoOrDash(lastPayment.paidAt ?? lastPayment.createdAt)
+                : "—"}
             </p>
             {lastPayment ? (
               <p className="text-xs text-gray-600">
@@ -190,6 +261,9 @@ export default async function ClientDashboardPage({
   const tipUrl = `${getPublicBaseUrl()}${tipPath}`;
   const qrFilename = `paytapper-tip-${clientId}.png`;
 
+  const branding: Client["branding"] | undefined = client?.branding;
+  const displayName = client?.branding?.title ?? client?.displayName ?? undefined;
+
   return (
     <main className="max-w-xl mx-auto p-6 space-y-6">
       <h1 className="text-2xl font-semibold">Client dashboard</h1>
@@ -216,6 +290,8 @@ export default async function ClientDashboardPage({
           </p>
         )}
       </section>
+
+      <BrandingPreview branding={branding} displayName={displayName} />
 
       <section className="border rounded-lg p-4 space-y-3">
         <h2 className="font-semibold">Tip link & QR</h2>
