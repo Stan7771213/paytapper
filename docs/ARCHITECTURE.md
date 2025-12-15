@@ -209,6 +209,13 @@ Stripe Checkout redirect
 Success Page
 /success
 Displayed after Stripe redirect.
+Receipt (v1):
+- Accepts Stripe Checkout query param: session_id
+- Resolves paymentIntentId by retrieving the Checkout Session from Stripe
+- Reads the persisted Payment record from JSON storage (paymentStore) using the canonical key (stripe.paymentIntentId)
+- Optionally reads Client branding (clientStore) to display client name/avatar
+- Displays: status, gross, fee, net, date, and a short payment reference
+- If the Payment record is not found yet (webhook delay), falls back to Stripe session amount and shows a "processing" hint
 Client Dashboard
 /client/[clientId]/dashboard
 Displays:
