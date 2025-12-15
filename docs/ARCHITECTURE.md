@@ -229,6 +229,13 @@ lib/stripe.ts
 Modes
 STRIPE_MODE = "test" | "live"
 default = "test"
+
+Live-mode readiness guardrails (v1)
+- Client dashboard must render a visible Stripe mode badge: TEST or LIVE (server-rendered)
+- If STRIPE_MODE is "test" and the resolved base URL does not look like localhost, the dashboard must show a warning to prevent accidental real-world sharing of test-mode links
+- No new dependencies
+- Must not change webhook or checkout logic
+
 Keys
 Test:
 STRIPE_SECRET_KEY_TEST

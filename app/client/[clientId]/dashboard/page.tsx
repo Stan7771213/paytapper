@@ -331,12 +331,36 @@ export default async function ClientDashboardPage({
   const tipUrl = `${getPublicBaseUrl()}${tipPath}`;
   const qrFilename = `paytapper-tip-${clientId}.png`;
 
+  const stripeMode = process.env.STRIPE_MODE === "live" ? "live" : "test";
+  const publicBaseUrl = getPublicBaseUrl();
+  const isLocalBaseUrl =
+    publicBaseUrl.includes("localhost") ||
+    publicBaseUrl.includes("127.0.0.1") ||
+    publicBaseUrl.includes("0.0.0.0");
+  const showTestModeProdWarning = stripeMode === "test" && !isLocalBaseUrl;
+
   const branding: Client["branding"] | undefined = client?.branding;
   const displayName = client?.branding?.title ?? client?.displayName ?? undefined;
 
   return (
     <main className="max-w-xl mx-auto p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">Client dashboard</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Client dashboard</h1>
+        <span className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold">
+          Stripe mode: {stripeMode === "live" ? "LIVE" : "TEST"}
+        </span>
+      </div>
+
+      {showTestModeProdWarning ? (
+        <section className="rounded-lg border p-4">
+          <p className="text-sm">
+            <strong>Warning:</strong> Stripe is in <strong>TEST</strong> mode,
+            but your public base URL looks like production{" "}
+            <span className="break-all">({publicBaseUrl})</span>. Do not share
+            this link publicly.
+          </p>
+        </section>
+      ) : null}
 
       <section className="border rounded-lg p-4 space-y-2">
         <h2 className="font-semibold">Client info</h2>
