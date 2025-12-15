@@ -55,7 +55,8 @@ Client {
   displayName: string
   email?: string
   isActive: boolean
-  createdAt: string
+  createdAt: string // Set only on first persistence; must never be overwritten on webhook re-delivery
+  // Set only on first persistence; must never be overwritten on webhook re-delivery
   payoutMode: "direct" | "platform"
 
   stripe?: {
@@ -90,12 +91,23 @@ Payment {
 
   status: "created" | "paid" | "failed" | "refunded"
 
+  Status semantics:
+  - created: internal pre-final state, must be immediately resolved by webhook
+  - paid: confirmed successful payment; paidAt must be set
+  - failed: payment attempt failed (no funds captured)
+  - refunded: funds were refunded after a successful payment
+
+  Rules:
+  - "pending" or placeholder states are strictly forbidden
+  - persisted payments must always correspond to a real Stripe PaymentIntent
+  - paidAt must be present if and only if status is "paid"
+
   stripe: {
     paymentIntentId: string   // canonical key
     checkoutSessionId: string // resolved deterministically
   }
 
-  createdAt: string
+  createdAt: string // Set only on first persistence; must never be overwritten on webhook re-delivery
   paidAt?: string
 
   payer?: {
@@ -111,24 +123,24 @@ NewPayment {
   currency: "eur"
 }
 Storage Layer
-Clients
-data/clients.json
-Format:
-[
-  { "Client": "..." }
-]
-Handled only by:
-lib/clientStore.ts
-Payments
-data/payments.json
-Format:
-[
-  { "Payment": "..." }
-]
-Handled only by:
-lib/paymentStore.ts
-Key rule: Payments are upserted by paymentIntentId (canonical key).
-No placeholder values (e.g. "pending") are ever persisted.
+
+Backends
+- Production: Vercel Blob via lib/jsonStorage.ts (requires env: BLOB_READ_WRITE_TOKEN)
+- Local development: filesystem JSON (same logical format)
+
+Logical files (not paths)
+- clients.json — handled only by lib/clientStore.ts
+- payments.json — handled only by lib/paymentStore.ts
+
+Invariants
+- All writes are async and must be awaited
+- Payments are upserted by stripe.paymentIntentId (canonical key)
+- createdAt is set on first persistence and never overwritten on re-delivery
+- No placeholder values are ever persisted (e.g. "pending"); Stripe IDs must be real
+
+Legacy
+- data/ directory may exist locally but is not used in production
+
 API Routes
 Clients
 POST /api/clients
@@ -145,6 +157,7 @@ create Stripe Checkout Session
 set minimal required metadata
 Metadata rules:
 required: clientId
+must be a real existing clientId (validated server-side)
 forbidden: placeholder values (e.g. "pending")
 do not attempt to store checkoutSessionId in metadata (no post-create patching)
 The system does not rely on metadata.checkoutSessionId at all.
@@ -165,10 +178,8 @@ validate Stripe signature
 extract paymentIntentId from the event (canonical key)
 determine clientId:
 prefer event.data.object.metadata.clientId if present
-otherwise resolve it from the associated Checkout Session (see below)
-deterministically resolve checkoutSessionId:
-if present on the webhook object / metadata, use it
-else fetch it via Stripe API:
+otherwise resolve it from the Checkout Session fetched by payment_intent (single source of truth)
+deterministically resolve checkoutSessionId (single source of truth):
 stripe.checkout.sessions.list({ payment_intent: paymentIntentId, limit: 1 })
 calculate platform fee (10%) server-side
 upsert payment via paymentStore using:

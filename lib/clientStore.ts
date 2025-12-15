@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { Client, NewClient } from "@/lib/types";
 import { readJsonArray, writeJsonArray } from "@/lib/jsonStorage";
 
-const CLIENTS_PATH = "data/clients.json";
+const CLIENTS_PATH = "clients.json";
 
 export async function getAllClients(): Promise<Client[]> {
   return readJsonArray<Client>(CLIENTS_PATH);

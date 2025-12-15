@@ -1,7 +1,7 @@
 import type { Payment } from "@/lib/types";
 import { readJsonArray, writeJsonArray } from "@/lib/jsonStorage";
 
-const PAYMENTS_PATH = "data/payments.json";
+const PAYMENTS_PATH = "payments.json";
 
 export async function getAllPayments(): Promise<Payment[]> {
   return readJsonArray<Payment>(PAYMENTS_PATH);
