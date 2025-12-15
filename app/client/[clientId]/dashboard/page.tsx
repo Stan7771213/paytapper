@@ -56,6 +56,21 @@ function getPaymentSortKey(p: Payment): number {
   return Number.isFinite(ms) ? ms : 0;
 }
 
+function parsePaymentsLimit(raw: unknown): number {
+  const allowed = new Set([10, 25, 50, 100]);
+
+  const first =
+    typeof raw === "string"
+      ? raw
+      : Array.isArray(raw) && typeof raw[0] === "string"
+      ? raw[0]
+      : undefined;
+
+  const n = first ? Number.parseInt(first, 10) : 10;
+  if (!Number.isFinite(n)) return 10;
+  return allowed.has(n) ? n : 10;
+}
+
 function BrandingPreview({
   branding,
   displayName,
@@ -190,22 +205,43 @@ function PaymentStats({ payments }: { payments: Payment[] }) {
 
 function RecentPaymentsList({
   payments,
-  limit = 10,
+  limit,
+  totalCount,
+  clientId,
+  onboardingParam,
 }: {
   payments: Payment[];
-  limit?: number;
+  limit: number;
+  totalCount: number;
+  clientId: string;
+  onboardingParam?: string | string[];
 }) {
-  if (payments.length === 0) return null;
+  if (totalCount === 0) return null;
 
   const recent = [...payments]
     .sort((a, b) => getPaymentSortKey(b) - getPaymentSortKey(a))
     .slice(0, limit);
 
+  const hasMore = totalCount > limit;
+
+  function buildHref(nextLimit: number): string {
+    const sp = new URLSearchParams();
+    sp.set("paymentsLimit", String(nextLimit));
+
+    if (typeof onboardingParam === "string") {
+      sp.set("onboarding", onboardingParam);
+    }
+
+    return `/client/${encodeURIComponent(clientId)}/dashboard?${sp.toString()}`;
+  }
+
   return (
     <section className="border rounded-lg p-4 space-y-3">
       <div className="flex items-center justify-between gap-3">
         <h3 className="font-semibold">Recent payments</h3>
-        <p className="text-xs text-gray-600">Last {recent.length}</p>
+        <p className="text-xs text-gray-600">
+          Showing {Math.min(limit, totalCount)} of {totalCount}
+        </p>
       </div>
 
       <div className="space-y-2">
@@ -245,6 +281,29 @@ function RecentPaymentsList({
           );
         })}
       </div>
+
+      <div className="flex flex-wrap gap-2 pt-1">
+        {hasMore && limit < 25 ? (
+          <a className="underline text-sm" href={buildHref(25)}>
+            Show 25
+          </a>
+        ) : null}
+        {hasMore && limit < 50 ? (
+          <a className="underline text-sm" href={buildHref(50)}>
+            Show 50
+          </a>
+        ) : null}
+        {hasMore && limit < 100 ? (
+          <a className="underline text-sm" href={buildHref(100)}>
+            Show 100
+          </a>
+        ) : null}
+        {limit !== 10 ? (
+          <a className="underline text-sm" href={buildHref(10)}>
+            Reset
+          </a>
+        ) : null}
+      </div>
     </section>
   );
 }
@@ -257,6 +316,7 @@ export default async function ClientDashboardPage({
   const search = (searchParams ? await searchParams : {}) ?? {};
   const onboardingParam = search.onboarding as string | string[] | undefined;
 
+  const paymentsLimit = parsePaymentsLimit(search.paymentsLimit);
   const client = await getClientById(clientId);
   const payments = await getPaymentsByClientId(clientId);
 
@@ -393,14 +453,21 @@ export default async function ClientDashboardPage({
 
       <section className="border rounded-lg p-4 space-y-3">
         <h3 className="font-semibold">Exports</h3>
-        <p className="text-sm text-gray-600">Download your payment history for reporting.</p>
+        <p className="text-sm text-gray-600">
+          Download your payment history for reporting.
+        </p>
         <div className="flex flex-wrap gap-3">
           <DownloadPaymentsCsvButton clientId={clientId} />
         </div>
       </section>
 
-      <PaymentStats payments={payments} />
-      <RecentPaymentsList payments={payments} limit={10} />
+      <RecentPaymentsList
+        payments={payments}
+        limit={paymentsLimit}
+        totalCount={payments.length}
+        clientId={clientId}
+        onboardingParam={onboardingParam}
+      />
     </main>
   );
 }
