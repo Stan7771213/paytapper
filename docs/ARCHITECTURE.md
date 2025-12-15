@@ -216,6 +216,7 @@ Success Page
 Displayed after Stripe redirect.
 Receipt (v1):
 - Accepts Stripe Checkout query param: session_id
+- Must render a visible Stripe mode badge: TEST or LIVE (server-rendered)
 - Resolves paymentIntentId by retrieving the Checkout Session from Stripe
 - Reads the persisted Payment record from JSON storage (paymentStore) using the canonical key (stripe.paymentIntentId)
 - Optionally reads Client branding (clientStore) to display client name/avatar

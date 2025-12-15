@@ -60,6 +60,8 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
   const params = await searchParams;
   const sessionId = first(params.session_id);
 
+  const stripeMode = process.env.STRIPE_MODE === "live" ? "live" : "test";
+
   if (!sessionId) {
     return (
       <main className="min-h-screen bg-black text-white flex items-center justify-center p-4">
@@ -99,7 +101,10 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
     if (pi && typeof pi === "object") {
       const paymentIntent = pi as Stripe.PaymentIntent;
 
-      if (typeof paymentIntent.id === "string" && paymentIntent.id.startsWith("pi_")) {
+      if (
+        typeof paymentIntent.id === "string" &&
+        paymentIntent.id.startsWith("pi_")
+      ) {
         paymentIntentId = paymentIntent.id;
       }
 
@@ -110,24 +115,28 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
     console.error("Stripe error:", err);
   }
 
-  const persistedPayment =
-    paymentIntentId ? await findPaymentByPaymentIntentId(paymentIntentId) : null;
+  const persistedPayment = paymentIntentId
+    ? await findPaymentByPaymentIntentId(paymentIntentId)
+    : null;
 
-  const effectiveClientId = persistedPayment?.clientId ?? clientIdFromStripe ?? null;
+  const effectiveClientId =
+    persistedPayment?.clientId ?? clientIdFromStripe ?? null;
   const client: Client | null = effectiveClientId
     ? await getClientById(effectiveClientId)
     : null;
 
   const branding: Client["branding"] | undefined = client?.branding;
   const title =
-    branding?.title ?? client?.displayName ?? (effectiveClientId ? "Paytapper" : "Paytapper");
+    branding?.title ??
+    client?.displayName ??
+    (effectiveClientId ? "Paytapper" : "Paytapper");
   const description = branding?.description;
   const avatarUrl = branding?.avatarUrl;
 
-  const status = persistedPayment?.status ?? (paymentIntentId ? "processing" : "unknown");
+  const status =
+    persistedPayment?.status ?? (paymentIntentId ? "processing" : "unknown");
 
-  const grossCents =
-    persistedPayment?.amountCents ?? (sessionAmountTotal ?? null);
+  const grossCents = persistedPayment?.amountCents ?? (sessionAmountTotal ?? null);
   const feeCents = persistedPayment?.platformFeeCents ?? null;
   const netCents = persistedPayment?.netAmountCents ?? null;
 
@@ -140,7 +149,14 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
       <div className="w-full max-w-md">
         <div className="rounded-2xl border border-gray-800 bg-gray-950/70 backdrop-blur p-6 space-y-5 shadow-sm text-center">
           <div className="space-y-3">
-            <p className="text-xs tracking-wide text-gray-400 uppercase">Paytapper</p>
+            <div className="flex items-center justify-center gap-3">
+              <p className="text-xs tracking-wide text-gray-400 uppercase">
+                Paytapper
+              </p>
+              <span className="inline-flex items-center rounded-full border border-gray-700 px-2.5 py-1 text-[11px] font-semibold text-gray-200">
+                Stripe mode: {stripeMode === "live" ? "LIVE" : "TEST"}
+              </span>
+            </div>
 
             {avatarUrl ? (
               <div className="flex items-center justify-center">
@@ -153,7 +169,11 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
             ) : null}
 
             <h1 className="text-2xl font-bold">
-              {status === "paid" ? "Payment successful" : status === "processing" ? "Payment processing" : "Payment status"}
+              {status === "paid"
+                ? "Payment successful"
+                : status === "processing"
+                ? "Payment processing"
+                : "Payment status"}
             </h1>
 
             {description ? (
@@ -179,7 +199,9 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs text-gray-500">Status</p>
               <p className="text-sm font-medium text-gray-200">
-                {persistedPayment ? persistedPayment.status.toUpperCase() : status.toUpperCase()}
+                {persistedPayment
+                  ? persistedPayment.status.toUpperCase()
+                  : status.toUpperCase()}
               </p>
             </div>
 
