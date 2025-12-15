@@ -13,15 +13,14 @@ export default async function ClientDashboardPage({
   params,
   searchParams,
 }: DashboardPageProps) {
-  // ВАЖНО: params и searchParams — это Promise, их нужно "await"
   const { clientId } = await params;
   const search = (searchParams ? await searchParams : {}) ?? {};
-  const onboardingParam = search.onboarding as
-    | string
-    | string[]
-    | undefined;
+  const onboardingParam = search.onboarding as string | string[] | undefined;
 
   const client = await getClientById(clientId);
+
+  const stripeAccountId = client?.stripe?.accountId ?? null;
+  const isConnected = Boolean(stripeAccountId);
 
   return (
     <main className="max-w-xl mx-auto p-6 space-y-6">
@@ -44,33 +43,30 @@ export default async function ClientDashboardPage({
         )}
         {!client && (
           <p className="text-sm text-gray-600">
-            No client record yet. It will be created automatically after
-            you start Stripe onboarding.
+            No client record yet. It will be created automatically after you start Stripe onboarding.
           </p>
         )}
       </section>
 
-      <section className="border rounded-lg p-4 space-y-2">
+      <section className="border rounded-lg p-4 space-y-3">
         <h2 className="font-semibold">Stripe account</h2>
 
-        {client ? (
-          <>
-            <p>
-              <strong>Stripe account ID:</strong>{" "}
-              {client.stripe?.accountId ?? "—"}
-            </p>
-          </>
-        ) : (
-          <p className="text-sm text-gray-600">
-            Stripe account is not created yet. Start onboarding to
-            create it.
-          </p>
-        )}
+        <p>
+          <strong>Connection status:</strong>{" "}
+          {isConnected ? (
+            <span className="text-green-600">Connected</span>
+          ) : (
+            <span className="text-gray-700">Not connected</span>
+          )}
+        </p>
+
+        <p>
+          <strong>Stripe account ID:</strong> {stripeAccountId ?? "—"}
+        </p>
 
         {onboardingParam === "return" && (
           <p className="text-sm text-green-600">
-            You returned from Stripe onboarding. Your account status
-            will update shortly.
+            You returned from Stripe onboarding. Your account status will update shortly.
           </p>
         )}
 
@@ -80,11 +76,9 @@ export default async function ClientDashboardPage({
           </p>
         )}
 
-        {/* Кнопка онбординга Stripe */}
         <StartOnboardingButton clientId={clientId} />
 
-        {/* Кнопка входа в Stripe Dashboard — только если клиент уже есть */}
-        {client && (
+        {isConnected && (
           <div className="pt-3">
             <OpenStripeDashboardButton />
           </div>
@@ -93,11 +87,8 @@ export default async function ClientDashboardPage({
 
       <section className="border rounded-lg p-4 space-y-2">
         <h2 className="font-semibold">Tips overview</h2>
-        <p className="text-sm text-gray-600">
-          Tip history will appear here later.
-        </p>
+        <p className="text-sm text-gray-600">Tip history will appear here later.</p>
       </section>
     </main>
   );
 }
-
