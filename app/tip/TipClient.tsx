@@ -18,6 +18,10 @@ function isCheckoutSuccess(
   return typeof (data as { url?: unknown }).url === 'string';
 }
 
+function formatEur(amountCents: number): string {
+  return (amountCents / 100).toFixed(2);
+}
+
 export default function TipClient({ clientId }: TipClientProps) {
   const effectiveClientId = clientId.trim();
 
@@ -64,7 +68,9 @@ export default function TipClient({ clientId }: TipClientProps) {
       window.location.href = data.url;
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+        err instanceof Error
+          ? err.message
+          : 'Something went wrong. Please try again.';
       console.error(err);
       setErrorMsg(message);
     } finally {
@@ -82,67 +88,100 @@ export default function TipClient({ clientId }: TipClientProps) {
     }
   }
 
+  const disabled = isLoading || isClientInvalid;
+
   return (
-    <main className="min-h-screen bg-black text-white flex items-center justify-center px-4">
-      <div className="w-full max-w-md rounded-2xl border border-gray-800 bg-gray-950/80 p-6 space-y-4">
-        <h1 className="text-2xl font-bold text-center">Pay with Paytapper</h1>
-        <p className="text-sm text-gray-400 text-center">
-          Choose an amount to send a tip or small payment.
-        </p>
-
-        <p className="text-xs text-gray-500 text-center">
-          Client ID:{' '}
-          <span className="font-mono text-gray-300">{effectiveClientId || '—'}</span>
-        </p>
-
-        {isClientInvalid && (
-          <p className="text-xs text-red-400 text-center">
-            Client ID is missing. Please make sure you scanned a valid Paytapper QR code.
-          </p>
-        )}
-
-        <div className="grid grid-cols-2 gap-3 pt-2">
-          {TIP_PRESETS_EUR.map((amount) => (
-            <button
-              key={amount}
-              type="button"
-              disabled={isLoading || isClientInvalid}
-              onClick={() => startCheckout(amount)}
-              className="py-3 rounded-xl border border-gray-700 bg-gray-900 hover:bg-gray-800 text-lg font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              €{amount}
-            </button>
-          ))}
-        </div>
-
-        <form onSubmit={handleCustomSubmit} className="space-y-2 pt-2">
-          <label className="block text-sm text-gray-400">Custom amount</label>
-          <div className="flex gap-2">
-            <input
-              type="number"
-              min="0"
-              step="0.5"
-              value={customAmount}
-              onChange={(e) => setCustomAmount(e.target.value)}
-              className="flex-1 rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-gray-500"
-              disabled={isLoading || isClientInvalid}
-            />
-            <button
-              type="submit"
-              disabled={isLoading || isClientInvalid}
-              className="px-4 py-2 rounded-xl bg-white text-black text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              {isLoading ? 'Processing...' : 'Pay'}
-            </button>
+    <main className="min-h-screen px-4 py-10 text-white bg-gradient-to-b from-black via-gray-950 to-black flex items-center justify-center">
+      <div className="w-full max-w-md">
+        <div className="rounded-2xl border border-gray-800 bg-gray-950/70 backdrop-blur p-6 space-y-5 shadow-sm">
+          <div className="space-y-2 text-center">
+            <p className="text-xs tracking-wide text-gray-400 uppercase">
+              Paytapper
+            </p>
+            <h1 className="text-3xl font-bold">Leave a tip</h1>
+            <p className="text-sm text-gray-400">
+              Choose an amount to send a tip or small payment via Stripe.
+            </p>
           </div>
-        </form>
 
-        {errorMsg && <p className="text-xs text-red-400 text-center pt-1">{errorMsg}</p>}
+          <div className="rounded-xl border border-gray-800 bg-black/30 px-3 py-2">
+            <p className="text-[11px] text-gray-500">
+              Client reference
+            </p>
+            <p className="font-mono text-xs text-gray-300 break-all">
+              {effectiveClientId || '—'}
+            </p>
+          </div>
 
-        <p className="text-[11px] text-gray-500 text-center pt-2">
-          Powered by Paytapper and Stripe. A small platform fee may be applied to each
-          transaction.
-        </p>
+          {isClientInvalid && (
+            <p className="text-xs text-red-400 text-center">
+              Client ID is missing. Please make sure you scanned a valid Paytapper QR code.
+            </p>
+          )}
+
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            {TIP_PRESETS_EUR.map((amount) => {
+              const cents = Math.round(amount * 100);
+              return (
+                <button
+                  key={amount}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => startCheckout(amount)}
+                  className="py-3 rounded-xl border border-gray-700 bg-gray-900 hover:bg-gray-800 text-lg font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label={`Pay EUR ${amount}`}
+                >
+                  €{formatEur(cents)}
+                </button>
+              );
+            })}
+          </div>
+
+          <form onSubmit={handleCustomSubmit} className="space-y-2 pt-1">
+            <label className="block text-sm text-gray-400" htmlFor="customAmount">
+              Custom amount
+            </label>
+
+            <div className="flex gap-2">
+              <div className="flex-1 flex items-center gap-2 rounded-xl border border-gray-700 bg-gray-900 px-3 py-2">
+                <span className="text-sm text-gray-400">€</span>
+                <input
+                  id="customAmount"
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="e.g. 7.50"
+                  value={customAmount}
+                  onChange={(e) => setCustomAmount(e.target.value)}
+                  className="w-full bg-transparent text-sm focus:outline-none"
+                  disabled={disabled}
+                  aria-describedby="customAmountHelp"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={disabled}
+                className="px-4 py-2 rounded-xl bg-white text-black text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {isLoading ? 'Redirecting…' : 'Continue'}
+              </button>
+            </div>
+
+            <p id="customAmountHelp" className="text-[11px] text-gray-500">
+              You will be redirected to Stripe Checkout to complete payment.
+            </p>
+          </form>
+
+          <div className="min-h-[18px]">
+            {errorMsg && (
+              <p className="text-xs text-red-400 text-center">{errorMsg}</p>
+            )}
+          </div>
+
+          <p className="text-[11px] text-gray-500 text-center">
+            Powered by Paytapper and Stripe. A small platform fee may be applied to each transaction.
+          </p>
+        </div>
       </div>
     </main>
   );
