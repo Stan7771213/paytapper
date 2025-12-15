@@ -260,10 +260,14 @@ function RecentPaymentsList({
                 </p>
               </div>
 
-              <div className="mt-1 grid grid-cols-1 sm:grid-cols-3 gap-1 text-sm">
+              <div className="mt-1 grid grid-cols-1 sm:grid-cols-4 gap-1 text-sm">
                 <p>
                   <span className="text-gray-600">Gross:</span>{" "}
                   {formatEurFromCents(p.amountCents)}
+                </p>
+                <p>
+                  <span className="text-gray-600">Fee:</span>{" "}
+                  {formatEurFromCents(p.platformFeeCents)}
                 </p>
                 <p>
                   <span className="text-gray-600">Net:</span>{" "}
