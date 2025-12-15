@@ -1,4 +1,6 @@
+import { getClientById } from "@/lib/clientStore";
 import TipClient from "../TipClient";
+import type { Client } from "@/lib/types";
 
 type TipPageProps = {
   params: Promise<{ clientId: string }>;
@@ -6,5 +8,11 @@ type TipPageProps = {
 
 export default async function Page({ params }: TipPageProps) {
   const { clientId } = await params;
-  return <TipClient clientId={clientId} />;
+
+  const client = await getClientById(clientId);
+
+  const branding: Client["branding"] | undefined = client?.branding;
+  const displayName = client?.branding?.title ?? client?.displayName ?? undefined;
+
+  return <TipClient clientId={clientId} displayName={displayName} branding={branding} />;
 }

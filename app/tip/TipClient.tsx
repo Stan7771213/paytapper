@@ -1,11 +1,14 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
+import type { Client } from '@/lib/types';
 
 const TIP_PRESETS_EUR = [5, 10, 20, 50];
 
 type TipClientProps = {
   clientId: string;
+  displayName?: string;
+  branding?: Client['branding'];
 };
 
 type CheckoutResponse =
@@ -22,7 +25,7 @@ function formatEur(amountCents: number): string {
   return (amountCents / 100).toFixed(2);
 }
 
-export default function TipClient({ clientId }: TipClientProps) {
+export default function TipClient({ clientId, displayName, branding }: TipClientProps) {
   const effectiveClientId = clientId.trim();
 
   const [customAmount, setCustomAmount] = useState('');
@@ -90,24 +93,40 @@ export default function TipClient({ clientId }: TipClientProps) {
 
   const disabled = isLoading || isClientInvalid;
 
+  const title = branding?.title ?? displayName ?? 'Paytapper';
+  const description = branding?.description;
+  const avatarUrl = branding?.avatarUrl;
+
   return (
     <main className="min-h-screen px-4 py-10 text-white bg-gradient-to-b from-black via-gray-950 to-black flex items-center justify-center">
       <div className="w-full max-w-md">
         <div className="rounded-2xl border border-gray-800 bg-gray-950/70 backdrop-blur p-6 space-y-5 shadow-sm">
-          <div className="space-y-2 text-center">
-            <p className="text-xs tracking-wide text-gray-400 uppercase">
-              Paytapper
-            </p>
-            <h1 className="text-3xl font-bold">Leave a tip</h1>
-            <p className="text-sm text-gray-400">
-              Choose an amount to send a tip or small payment via Stripe.
-            </p>
+          <div className="space-y-3 text-center">
+            <p className="text-xs tracking-wide text-gray-400 uppercase">Paytapper</p>
+
+            {avatarUrl ? (
+              <div className="flex items-center justify-center">
+                <img
+                  src={avatarUrl}
+                  alt={`${title} avatar`}
+                  className="h-16 w-16 rounded-full border border-gray-800 object-cover"
+                />
+              </div>
+            ) : null}
+
+            <h1 className="text-3xl font-bold">{title}</h1>
+
+            {description ? (
+              <p className="text-sm text-gray-400">{description}</p>
+            ) : (
+              <p className="text-sm text-gray-400">
+                Leave a tip or send a small payment via Stripe.
+              </p>
+            )}
           </div>
 
           <div className="rounded-xl border border-gray-800 bg-black/30 px-3 py-2">
-            <p className="text-[11px] text-gray-500">
-              Client reference
-            </p>
+            <p className="text-[11px] text-gray-500">Client reference</p>
             <p className="font-mono text-xs text-gray-300 break-all">
               {effectiveClientId || '—'}
             </p>
@@ -173,9 +192,7 @@ export default function TipClient({ clientId }: TipClientProps) {
           </form>
 
           <div className="min-h-[18px]">
-            {errorMsg && (
-              <p className="text-xs text-red-400 text-center">{errorMsg}</p>
-            )}
+            {errorMsg && <p className="text-xs text-red-400 text-center">{errorMsg}</p>}
           </div>
 
           <p className="text-[11px] text-gray-500 text-center">
