@@ -1,7 +1,10 @@
 import TipClient from "../TipClient";
 
-export default async function Page(props: any) {
-  const params = await props.params;
-  return <TipClient clientId={params.clientId} />;
-}
+type TipPageProps = {
+  params: Promise<{ clientId: string }>;
+};
 
+export default async function Page({ params }: TipPageProps) {
+  const { clientId } = await params;
+  return <TipClient clientId={clientId} />;
+}
