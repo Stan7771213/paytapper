@@ -206,6 +206,11 @@ Customer-facing payment page.
 fixed amounts
 custom amount
 Stripe Checkout redirect
+
+Tip page guardrail (v1)
+- If STRIPE_MODE is "test", the tip page must show a small, neutral server-rendered badge: "Test payments" (informational only)
+- No warning banner here (dashboard handles warnings)
+- No changes to checkout or webhook logic
 Success Page
 /success
 Displayed after Stripe redirect.
