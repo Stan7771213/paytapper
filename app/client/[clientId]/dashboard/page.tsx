@@ -4,6 +4,7 @@ import type { Client, Payment } from "@/lib/types";
 import { StartOnboardingButton } from "./start-onboarding-button";
 import { OpenStripeDashboardButton } from "./open-stripe-dashboard-button";
 import { DownloadQrPngButton } from "./download-qr-png-button";
+import { CopyTipLinkButton } from "./copy-tip-link-button";
 import QRCode from "react-qr-code";
 
 type DashboardPageProps = {
@@ -65,7 +66,9 @@ function BrandingPreview({
   const description = branding?.description;
   const avatarUrl = branding?.avatarUrl;
 
-  const hasAnyBranding = Boolean(branding?.title || branding?.description || branding?.avatarUrl);
+  const hasAnyBranding = Boolean(
+    branding?.title || branding?.description || branding?.avatarUrl
+  );
 
   return (
     <section className="border rounded-lg p-4 space-y-3">
@@ -100,7 +103,9 @@ function BrandingPreview({
           <div className="min-w-0">
             <p className="text-lg font-semibold text-gray-900">{title}</p>
             <p className="text-sm text-gray-600">
-              {description ? description : "Leave a tip or send a small payment via Stripe."}
+              {description
+                ? description
+                : "Leave a tip or send a small payment via Stripe."}
             </p>
           </div>
         </div>
@@ -316,6 +321,8 @@ export default async function ClientDashboardPage({
             >
               Open tip page
             </a>
+
+            <CopyTipLinkButton text={tipUrl} />
 
             <DownloadQrPngButton value={tipUrl} filename={qrFilename} />
           </div>
