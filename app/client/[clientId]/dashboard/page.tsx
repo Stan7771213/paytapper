@@ -88,16 +88,15 @@ function BrandingPreview({
 
   return (
     <section className="border rounded-lg p-4 space-y-3">
-      <h2 className="font-semibold">Branding preview</h2>
+      <h2 className="font-semibold">Tip page branding</h2>
 
       {!hasAnyBranding ? (
         <p className="text-sm text-gray-600">
-          No branding is set for this client yet. The tip page will use a default
-          Paytapper look.
+          No branding yet. Your tip page will use a clean default Paytapper look.
         </p>
       ) : (
         <p className="text-sm text-gray-600">
-          This is how your tip page header will look to guests.
+          This is how the header of your tip page will look to guests.
         </p>
       )}
 
@@ -157,11 +156,11 @@ function PaymentStats({ payments }: { payments: Payment[] }) {
 
   return (
     <section className="border rounded-lg p-4 space-y-3">
-      <h2 className="font-semibold">Tips overview</h2>
+      <h2 className="font-semibold">Payments overview</h2>
 
       {total === 0 ? (
         <p className="text-sm text-gray-600">
-          No tips yet. As soon as someone completes a payment, it will appear
+          No payments yet. As soon as someone completes a tip, it will appear
           here automatically.
         </p>
       ) : (
@@ -177,14 +176,14 @@ function PaymentStats({ payments }: { payments: Payment[] }) {
           </div>
 
           <div className="rounded-md border p-3">
-            <p className="text-xs text-gray-600">Total paid (net)</p>
+            <p className="text-xs text-gray-600">Total received (net)</p>
             <p className="text-lg font-semibold">
               {formatEurFromCents(totalNetPaidCents)}
             </p>
           </div>
 
           <div className="rounded-md border p-3">
-            <p className="text-xs text-gray-600">Last payment</p>
+            <p className="text-xs text-gray-600">Most recent payment</p>
             <p className="text-sm font-medium">
               {lastPayment
                 ? formatIsoOrDash(lastPayment.paidAt ?? lastPayment.createdAt)
@@ -266,7 +265,7 @@ function RecentPaymentsList({
                   {formatEurFromCents(p.amountCents)}
                 </p>
                 <p>
-                  <span className="text-gray-600">Fee:</span>{" "}
+                  <span className="text-gray-600">Platform fee:</span>{" "}
                   {formatEurFromCents(p.platformFeeCents)}
                 </p>
                 <p>
@@ -274,7 +273,7 @@ function RecentPaymentsList({
                   {formatEurFromCents(p.netAmountCents)}
                 </p>
                 <p className="break-all">
-                  <span className="text-gray-600">Payer:</span> {payer}
+                  <span className="text-gray-600">Payer email:</span> {payer}
                 </p>
               </div>
 
@@ -340,12 +339,15 @@ export default async function ClientDashboardPage({
   const showTestModeProdWarning = stripeMode === "test" && !isLocalBaseUrl;
 
   const branding: Client["branding"] | undefined = client?.branding;
-  const displayName = client?.branding?.title ?? client?.displayName ?? undefined;
+  const displayName =
+    client?.branding?.title ?? client?.displayName ?? undefined;
 
   return (
     <main className="max-w-xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Client dashboard</h1>
+        <h1 className="text-2xl font-semibold">
+          {displayName ? `${displayName} dashboard` : "Client dashboard"}
+        </h1>
         <span className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold">
           Stripe mode: {stripeMode === "live" ? "LIVE" : "TEST"}
         </span>
@@ -363,7 +365,7 @@ export default async function ClientDashboardPage({
       ) : null}
 
       <section className="border rounded-lg p-4 space-y-2">
-        <h2 className="font-semibold">Client info</h2>
+        <h2 className="font-semibold">Profile</h2>
         <p>
           <strong>Client ID:</strong> {clientId}
         </p>
@@ -388,11 +390,11 @@ export default async function ClientDashboardPage({
       <BrandingPreview branding={branding} displayName={displayName} />
 
       <section className="border rounded-lg p-4 space-y-3">
-        <h2 className="font-semibold">Tip link & QR</h2>
+        <h2 className="font-semibold">Share link & QR</h2>
 
         <div className="space-y-2">
           <p className="text-sm text-gray-700">
-            Share this link or print the QR code:
+            Share your link with guests, or print the QR code.
           </p>
 
           <p className="break-all">
@@ -425,7 +427,7 @@ export default async function ClientDashboardPage({
           </div>
 
           <div className="hidden md:block pt-4 space-y-2">
-            <p className="text-sm text-gray-700">Preview (desktop only):</p>
+            <p className="text-sm text-gray-700">Tip page preview (desktop):</p>
             <div className="rounded-lg border overflow-hidden bg-white">
               <iframe
                 title="Tip page preview"
@@ -440,10 +442,10 @@ export default async function ClientDashboardPage({
       </section>
 
       <section className="border rounded-lg p-4 space-y-3">
-        <h2 className="font-semibold">Stripe account</h2>
+        <h2 className="font-semibold">Stripe connection</h2>
 
         <p>
-          <strong>Connection status:</strong>{" "}
+          <strong>Status:</strong>{" "}
           {isConnected ? (
             <span className="text-green-600">Connected</span>
           ) : (
@@ -480,9 +482,9 @@ export default async function ClientDashboardPage({
       <PaymentStats payments={payments} />
 
       <section className="border rounded-lg p-4 space-y-3">
-        <h3 className="font-semibold">Exports</h3>
+        <h3 className="font-semibold">Reports</h3>
         <p className="text-sm text-gray-600">
-          Download your payment history for reporting.
+          Download your payment history as CSV.
         </p>
         <div className="flex flex-wrap gap-3">
           <DownloadPaymentsCsvButton clientId={clientId} />
