@@ -164,6 +164,17 @@ The system does not rely on metadata.checkoutSessionId at all.
 Payments by Client
 GET /api/payments/by-client?clientId=...
 Returns all payments for dashboard statistics.
+
+Payments export (CSV)
+GET /api/payments/export.csv?clientId=...
+Returns a CSV file as an attachment.
+Rules:
+- Server-side generation only (no client-side CSV assembly)
+- Reads payments via lib/paymentStore.ts (same source as dashboard)
+- No auth for now
+- Fields (v1): date (paidAt ?? createdAt), status, grossEur, netEur, paymentIntentId
+- Content-Type: text/csv; charset=utf-8
+- Content-Disposition: attachment; filename="paytapper-payments-{clientId}.csv"
 Stripe Connect
 POST /api/connect/onboard
 GET /api/connect/status

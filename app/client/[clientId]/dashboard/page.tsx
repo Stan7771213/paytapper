@@ -5,6 +5,7 @@ import { StartOnboardingButton } from "./start-onboarding-button";
 import { OpenStripeDashboardButton } from "./open-stripe-dashboard-button";
 import { DownloadQrPngButton } from "./download-qr-png-button";
 import { CopyTipLinkButton } from "./copy-tip-link-button";
+import { DownloadPaymentsCsvButton } from "./download-payments-csv-button";
 import QRCode from "react-qr-code";
 
 type DashboardPageProps = {
@@ -386,6 +387,16 @@ export default async function ClientDashboardPage({
             <OpenStripeDashboardButton />
           </div>
         )}
+      </section>
+
+      <PaymentStats payments={payments} />
+
+      <section className="border rounded-lg p-4 space-y-3">
+        <h3 className="font-semibold">Exports</h3>
+        <p className="text-sm text-gray-600">Download your payment history for reporting.</p>
+        <div className="flex flex-wrap gap-3">
+          <DownloadPaymentsCsvButton clientId={clientId} />
+        </div>
       </section>
 
       <PaymentStats payments={payments} />
