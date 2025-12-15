@@ -232,6 +232,14 @@ recent payments
 Stripe Configuration
 Defined in:
 lib/stripe.ts
+
+Environment sanity guard (v1)
+- lib/stripe.ts must validate Stripe env configuration at import-time and throw a clear Error on invalid configuration
+- If STRIPE_MODE is "live": require STRIPE_SECRET_KEY_LIVE and STRIPE_WEBHOOK_SECRET_LIVE
+- If STRIPE_MODE is "test" (default): require STRIPE_SECRET_KEY_TEST and STRIPE_WEBHOOK_SECRET_TEST
+- No silent fallbacks; fail fast
+- No changes to checkout or webhook logic
+
 Modes
 STRIPE_MODE = "test" | "live"
 default = "test"

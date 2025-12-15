@@ -7,18 +7,31 @@ const STRIPE_MODE: StripeMode =
 
 function requireEnv(name: string): string {
   const value = process.env[name];
-  if (!value) {
-    throw new Error("Missing required environment variable: " + name);
+  if (!value || !value.trim()) {
+    throw new Error(`Missing required environment variable: ${name}`);
   }
-  return value;
+  return value.trim();
+}
+
+function assertStripeEnv(mode: StripeMode): void {
+  if (mode === "live") {
+    requireEnv("STRIPE_SECRET_KEY_LIVE");
+    requireEnv("STRIPE_WEBHOOK_SECRET_LIVE");
+    return;
+  }
+
+  requireEnv("STRIPE_SECRET_KEY_TEST");
+  requireEnv("STRIPE_WEBHOOK_SECRET_TEST");
 }
 
 function getStripeSecretKey(mode: StripeMode): string {
-  if (mode === "live") {
-    return requireEnv("STRIPE_SECRET_KEY_LIVE");
-  }
-  return requireEnv("STRIPE_SECRET_KEY_TEST");
+  return mode === "live"
+    ? requireEnv("STRIPE_SECRET_KEY_LIVE")
+    : requireEnv("STRIPE_SECRET_KEY_TEST");
 }
+
+// Fail fast at import-time (local + Vercel)
+assertStripeEnv(STRIPE_MODE);
 
 const stripeSecretKey = getStripeSecretKey(STRIPE_MODE);
 
