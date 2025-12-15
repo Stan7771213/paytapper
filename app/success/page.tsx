@@ -66,13 +66,15 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
     return (
       <main className="min-h-screen bg-black text-white flex items-center justify-center p-4">
         <div className="text-center space-y-4">
-          <h1 className="text-xl font-semibold">Missing session ID</h1>
-          <p className="text-gray-400">We could not verify your payment.</p>
+          <h1 className="text-xl font-semibold">Missing session</h1>
+          <p className="text-gray-400">
+            We couldn’t verify this payment. Please return and try again.
+          </p>
           <Link
             href="/"
             className="text-sm underline text-gray-300 hover:text-white"
           >
-            Return to homepage
+            Back to Paytapper
           </Link>
         </div>
       </main>
@@ -121,28 +123,43 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
 
   const effectiveClientId =
     persistedPayment?.clientId ?? clientIdFromStripe ?? null;
+
   const client: Client | null = effectiveClientId
     ? await getClientById(effectiveClientId)
     : null;
 
   const branding: Client["branding"] | undefined = client?.branding;
-  const title =
-    branding?.title ??
-    client?.displayName ??
-    (effectiveClientId ? "Paytapper" : "Paytapper");
+  const title = branding?.title ?? client?.displayName ?? "Paytapper";
   const description = branding?.description;
   const avatarUrl = branding?.avatarUrl;
 
   const status =
     persistedPayment?.status ?? (paymentIntentId ? "processing" : "unknown");
 
-  const grossCents = persistedPayment?.amountCents ?? (sessionAmountTotal ?? null);
+  const grossCents =
+    persistedPayment?.amountCents ?? (sessionAmountTotal ?? null);
   const feeCents = persistedPayment?.platformFeeCents ?? null;
   const netCents = persistedPayment?.netAmountCents ?? null;
 
-  const whenIso = persistedPayment?.paidAt ?? persistedPayment?.createdAt ?? undefined;
+  const whenIso =
+    persistedPayment?.paidAt ?? persistedPayment?.createdAt ?? undefined;
 
   const canSendAnotherTip = Boolean(effectiveClientId);
+
+  const headline =
+    status === "paid"
+      ? "Payment successful"
+      : status === "processing"
+      ? "Finalizing your receipt"
+      : "Payment status";
+
+  const subcopy =
+    description ??
+    (status === "paid"
+      ? "Thank you — your payment has been confirmed."
+      : status === "processing"
+      ? "Stripe has confirmed your payment. Your receipt will appear here shortly."
+      : "Payment details are shown below.");
 
   return (
     <main className="min-h-screen px-4 py-10 text-white bg-gradient-to-b from-black via-gray-950 to-black flex items-center justify-center">
@@ -168,29 +185,18 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
               </div>
             ) : null}
 
-            <h1 className="text-2xl font-bold">
-              {status === "paid"
-                ? "Payment successful"
-                : status === "processing"
-                ? "Payment processing"
-                : "Payment status"}
-            </h1>
+            <h1 className="text-2xl font-bold">{headline}</h1>
 
-            {description ? (
-              <p className="text-sm text-gray-400">{description}</p>
-            ) : (
-              <p className="text-sm text-gray-400">
-                Thank you! Your payment details are below.
-              </p>
-            )}
+            <p className="text-sm text-gray-400">{subcopy}</p>
           </div>
 
           {status === "processing" ? (
             <div className="rounded-xl border border-yellow-700/40 bg-yellow-950/30 px-4 py-3 text-left">
-              <p className="text-sm text-yellow-200 font-medium">Processing</p>
+              <p className="text-sm text-yellow-200 font-medium">
+                Processing
+              </p>
               <p className="text-xs text-yellow-200/80">
-                Your payment is confirmed by Stripe. We are finalizing the receipt
-                and it may take a few seconds to appear here.
+                If this page doesn’t update within a few seconds, refresh once.
               </p>
             </div>
           ) : null}
@@ -199,9 +205,7 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs text-gray-500">Status</p>
               <p className="text-sm font-medium text-gray-200">
-                {persistedPayment
-                  ? persistedPayment.status.toUpperCase()
-                  : status.toUpperCase()}
+                {(persistedPayment ? persistedPayment.status : status).toUpperCase()}
               </p>
             </div>
 
@@ -230,16 +234,20 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
               </div>
 
               <div className="flex items-center justify-between gap-3">
-                <p className="text-xs text-gray-500">Fee</p>
+                <p className="text-xs text-gray-500">Platform fee</p>
                 <p className="text-sm font-semibold text-gray-100">
-                  {typeof feeCents === "number" ? formatEurFromCents(feeCents) : "—"}
+                  {typeof feeCents === "number"
+                    ? formatEurFromCents(feeCents)
+                    : "—"}
                 </p>
               </div>
 
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs text-gray-500">Net</p>
                 <p className="text-sm font-semibold text-gray-100">
-                  {typeof netCents === "number" ? formatEurFromCents(netCents) : "—"}
+                  {typeof netCents === "number"
+                    ? formatEurFromCents(netCents)
+                    : "—"}
                 </p>
               </div>
             </div>
@@ -250,26 +258,19 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
               href={`/tip/${encodeURIComponent(effectiveClientId as string)}`}
               className="block w-full py-3 rounded-xl bg-white text-black text-sm font-semibold hover:bg-gray-200 transition"
             >
-              Send another tip
+              Leave another tip
             </Link>
           ) : (
             <Link
               href="/"
               className="block w-full py-3 rounded-xl bg-white text-black text-sm font-semibold hover:bg-gray-200 transition"
             >
-              Return to homepage
+              Back to Paytapper
             </Link>
           )}
 
-          <Link
-            href="/"
-            className="block w-full py-3 rounded-xl border border-gray-700 text-gray-200 hover:bg-gray-900 transition text-sm font-semibold"
-          >
-            Return to homepage
-          </Link>
-
           <p className="text-[11px] text-gray-500 pt-2">
-            Powered by Paytapper and Stripe. A small platform fee may be applied to each transaction.
+            Payments are processed by Stripe. A platform fee may apply.
           </p>
         </div>
       </div>
