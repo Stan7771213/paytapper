@@ -68,12 +68,9 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
         <div className="text-center space-y-4">
           <h1 className="text-xl font-semibold">Missing session</h1>
           <p className="text-gray-400">
-            We couldn’t verify this payment. Please return and try again.
+            We couldn’t verify this payment session. Please return and try again.
           </p>
-          <Link
-            href="/"
-            className="text-sm underline text-gray-300 hover:text-white"
-          >
+          <Link href="/" className="text-sm underline text-gray-300 hover:text-white">
             Back to Paytapper
           </Link>
         </div>
@@ -103,10 +100,7 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
     if (pi && typeof pi === "object") {
       const paymentIntent = pi as Stripe.PaymentIntent;
 
-      if (
-        typeof paymentIntent.id === "string" &&
-        paymentIntent.id.startsWith("pi_")
-      ) {
+      if (typeof paymentIntent.id === "string" && paymentIntent.id.startsWith("pi_")) {
         paymentIntentId = paymentIntent.id;
       }
 
@@ -121,8 +115,7 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
     ? await findPaymentByPaymentIntentId(paymentIntentId)
     : null;
 
-  const effectiveClientId =
-    persistedPayment?.clientId ?? clientIdFromStripe ?? null;
+  const effectiveClientId = persistedPayment?.clientId ?? clientIdFromStripe ?? null;
 
   const client: Client | null = effectiveClientId
     ? await getClientById(effectiveClientId)
@@ -133,33 +126,32 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
   const description = branding?.description;
   const avatarUrl = branding?.avatarUrl;
 
-  const status =
-    persistedPayment?.status ?? (paymentIntentId ? "processing" : "unknown");
+  const status = persistedPayment?.status ?? (paymentIntentId ? "processing" : "unknown");
 
-  const grossCents =
-    persistedPayment?.amountCents ?? (sessionAmountTotal ?? null);
+  const grossCents = persistedPayment?.amountCents ?? (sessionAmountTotal ?? null);
   const feeCents = persistedPayment?.platformFeeCents ?? null;
   const netCents = persistedPayment?.netAmountCents ?? null;
 
-  const whenIso =
-    persistedPayment?.paidAt ?? persistedPayment?.createdAt ?? undefined;
+  const whenIso = persistedPayment?.paidAt ?? persistedPayment?.createdAt ?? undefined;
 
   const canSendAnotherTip = Boolean(effectiveClientId);
 
   const headline =
     status === "paid"
-      ? "Payment successful"
+      ? "Payment confirmed"
       : status === "processing"
-      ? "Finalizing your receipt"
-      : "Payment status";
+      ? "Preparing your receipt"
+      : "Payment details";
 
   const subcopy =
     description ??
     (status === "paid"
-      ? "Thank you — your payment has been confirmed."
+      ? "Thanks! Your payment was successfully processed."
       : status === "processing"
-      ? "Stripe has confirmed your payment. Your receipt will appear here shortly."
-      : "Payment details are shown below.");
+      ? "Stripe has confirmed the payment. We’re finalizing your receipt."
+      : "Your payment information is shown below.");
+
+  const statusLabel = (persistedPayment ? persistedPayment.status : status).toUpperCase();
 
   return (
     <main className="min-h-screen px-4 py-10 text-white bg-gradient-to-b from-black via-gray-950 to-black flex items-center justify-center">
@@ -192,11 +184,9 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
 
           {status === "processing" ? (
             <div className="rounded-xl border border-yellow-700/40 bg-yellow-950/30 px-4 py-3 text-left">
-              <p className="text-sm text-yellow-200 font-medium">
-                Processing
-              </p>
+              <p className="text-sm text-yellow-200 font-medium">Processing</p>
               <p className="text-xs text-yellow-200/80">
-                If this page doesn’t update within a few seconds, refresh once.
+                This can take a few seconds. If it doesn’t update, refresh once.
               </p>
             </div>
           ) : null}
@@ -204,9 +194,7 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
           <div className="rounded-xl border border-gray-800 bg-black/30 px-4 py-4 text-left space-y-2">
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs text-gray-500">Status</p>
-              <p className="text-sm font-medium text-gray-200">
-                {(persistedPayment ? persistedPayment.status : status).toUpperCase()}
-              </p>
+              <p className="text-sm font-medium text-gray-200">{statusLabel}</p>
             </div>
 
             <div className="flex items-center justify-between gap-3">
@@ -236,18 +224,14 @@ export default async function SuccessPage({ searchParams }: SuccessPageProps) {
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs text-gray-500">Platform fee</p>
                 <p className="text-sm font-semibold text-gray-100">
-                  {typeof feeCents === "number"
-                    ? formatEurFromCents(feeCents)
-                    : "—"}
+                  {typeof feeCents === "number" ? formatEurFromCents(feeCents) : "—"}
                 </p>
               </div>
 
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs text-gray-500">Net</p>
                 <p className="text-sm font-semibold text-gray-100">
-                  {typeof netCents === "number"
-                    ? formatEurFromCents(netCents)
-                    : "—"}
+                  {typeof netCents === "number" ? formatEurFromCents(netCents) : "—"}
                 </p>
               </div>
             </div>
