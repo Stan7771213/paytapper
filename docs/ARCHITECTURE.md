@@ -299,3 +299,83 @@ clarity
 correctness
 long-term maintainability
 No feature is allowed to compromise these principles.
+
+
+---
+
+## Stripe Connect (v1) — Onboarding & Payout Routing
+
+Goal: allow a client (guide/driver/creator) to connect their own Stripe account and receive payouts, while Paytapper collects a 10% platform fee.
+
+### Concepts
+- Platform Stripe account: Paytapper’s Stripe account (where the app is registered).
+- Connected account: the client’s Stripe account created/linked via Stripe Connect.
+- Payout modes:
+  - direct: money goes to the connected account (client), platform keeps fee.
+  - platform: money stays on platform account (v1 fallback / internal usage).
+
+### Client model requirements
+Client.stripe.accountId
+- Must be set when onboarding starts (created or reused deterministically).
+- Must never be overwritten once set.
+- Connection status is derived from Stripe API (not stored as a boolean).
+
+### API routes (Connect)
+POST /api/connect/onboard
+Input:
+- clientId (required)
+
+Behavior:
+1) Validate client exists.
+2) If client.stripe.accountId is missing:
+   - create a Stripe Connect account (type: "express" for v1) and persist accountId.
+3) Create an Account Link for onboarding / refresh / return.
+4) Return a redirect URL to Stripe onboarding.
+
+Output (v1):
+- { url: string }
+
+GET /api/connect/status?clientId=...
+Behavior:
+1) Validate client exists.
+2) If no accountId: return connected=false.
+3) Retrieve account from Stripe.
+4) Return minimal status payload (v1):
+- connected: boolean (chargesEnabled && detailsSubmitted)
+- accountId: string
+- chargesEnabled: boolean
+- detailsSubmitted: boolean
+
+Rules:
+- Do not persist "connected" flags in JSON; always derive from Stripe retrieval.
+- No silent fallbacks. If Stripe retrieval fails, surface a clear error.
+
+### Payments routing (Connect)
+Checkout creation (POST /api/payments/checkout) must route funds based on payoutMode:
+
+If client.payoutMode = "direct" AND client.stripe.accountId is present AND account is connected:
+- Create a Checkout Session that results in a PaymentIntent configured for Connect:
+  - Collect platform fee (10%) via application_fee_amount
+  - Route the remaining amount to the connected account via transfer_data.destination
+- The canonical platform fee remains PLATFORM_FEE_PERCENT = 10 (server-side).
+
+If client.payoutMode = "platform" OR client has no connected account:
+- Create a standard Checkout Session on the platform account (no destination routing).
+
+Rules:
+- Webhook logic must remain canonical and stable:
+  - Payments are persisted by stripe.paymentIntentId
+  - clientId resolution stays deterministic (metadata.clientId preferred; otherwise via Session lookup)
+- No placeholder states.
+
+### Dashboard behavior
+- If not connected: show "Not connected" and a single primary CTA to start onboarding.
+- If connected: show "Connected" and allow opening Stripe Dashboard.
+- Dashboard must show Stripe mode badge (TEST/LIVE).
+
+### Non-goals for v1
+- Full payout reconciliation
+- Multiple connected accounts per client
+- Refund routing edge cases
+- KYC/verification guidance beyond Stripe-hosted UI
+
