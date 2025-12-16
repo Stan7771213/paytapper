@@ -113,3 +113,18 @@ Do NOT onboard additional clients until resolved.
 ---
 
 This checklist exists to ensure the **first impression is calm, professional, and trustworthy**.
+
+---
+
+## W2 — Dry-run verification (TEST mode)
+
+Status: PASS ✅
+
+Verified locally (localhost, STRIPE_MODE=test):
+- Payment completes end-to-end
+- Webhook persists payment with canonical paymentIntentId
+- Dashboard shows the payment
+- CSV export includes the payment (gross / net correct)
+
+Example:
+EUR 2.00 -> fee EUR 0.20 -> net EUR 1.80
