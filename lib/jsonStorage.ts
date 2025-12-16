@@ -79,6 +79,7 @@ export async function writeJsonArray(relativePath: string, data: unknown[]): Pro
   await put(pathname, content, {
     access: "public",
     addRandomSuffix: false,
+    allowOverwrite: true,
     contentType: "application/json",
   });
 }
