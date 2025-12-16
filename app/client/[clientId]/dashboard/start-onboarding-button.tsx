@@ -4,19 +4,17 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 
 interface StartOnboardingButtonProps {
-  clientId?: string; // оставляем опционально, но будем брать из URL
+  clientId?: string; // Optional: we primarily read from the URL
 }
 
-export function StartOnboardingButton({
-  clientId,
-}: StartOnboardingButtonProps) {
+export function StartOnboardingButton({ clientId }: StartOnboardingButtonProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Берём clientId из адресной строки: /client/[clientId]/dashboard
+  // Read clientId from the route: /client/[clientId]/dashboard
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
-  // segments = ["client", "test123", "dashboard"]
+  // segments = ["client", "<clientId>", "dashboard"]
   const clientIdFromUrl = segments[1];
 
   const effectiveClientId = clientIdFromUrl || clientId || "";
@@ -27,7 +25,7 @@ export function StartOnboardingButton({
 
     try {
       if (!effectiveClientId) {
-        throw new Error("clientId is missing on this page");
+        throw new Error("Client ID is missing on this page.");
       }
 
       const res = await fetch("/api/connect/onboard", {
@@ -37,21 +35,34 @@ export function StartOnboardingButton({
       });
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
+        const data: unknown = await res.json().catch(() => ({}));
+        const maybeError =
+          typeof data === "object" && data !== null && "error" in data
+            ? (data as { error?: unknown }).error
+            : undefined;
+
         throw new Error(
-          data.error || "Failed to create onboarding link"
+          typeof maybeError === "string"
+            ? maybeError
+            : "Could not create a Stripe onboarding link."
         );
       }
 
-      const data = await res.json();
-      if (!data.url) {
-        throw new Error("Stripe onboarding URL is missing");
+      const data: unknown = await res.json();
+      const url =
+        typeof data === "object" && data !== null && "url" in data
+          ? (data as { url?: unknown }).url
+          : undefined;
+
+      if (typeof url !== "string" || !url.trim()) {
+        throw new Error("Stripe onboarding URL is missing.");
       }
 
-      window.location.href = data.url;
-    } catch (err: any) {
+      window.location.href = url;
+    } catch (err: unknown) {
       console.error(err);
-      setError(err.message || "Something went wrong");
+      const message = err instanceof Error ? err.message : "Something went wrong.";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -65,16 +76,14 @@ export function StartOnboardingButton({
         disabled={loading}
         className="px-4 py-2 rounded-md border text-sm font-medium hover:bg-gray-100 disabled:opacity-50"
       >
-        {loading
-          ? "Redirecting to Stripe..."
-          : "Start / Continue Stripe onboarding"}
+        {loading ? "Opening Stripe…" : "Connect Stripe to receive payouts"}
       </button>
-      {error && (
-        <p className="text-sm text-red-600">
-          {error}
-        </p>
-      )}
+
+      <p className="text-xs text-muted-foreground">
+        You’ll be redirected to Stripe to finish setup. It usually takes 2–3 minutes.
+      </p>
+
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
     </div>
   );
 }
-
