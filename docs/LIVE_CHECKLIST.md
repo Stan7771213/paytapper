@@ -85,3 +85,18 @@ This prevents accidental live payments while you debug.
 - Watch Stripe events timeline for webhook delivery success.
 - Verify at least one additional payment from a different device/network.
 
+
+---
+
+## L2 — Live smoke test
+
+Status: PASS ✅
+
+- €1 LIVE payment completed successfully
+- Stripe Checkout → Redirect → Webhook → Blob storage → Dashboard → CSV → Receipt
+- Webhook delivery succeeded after redeploy
+- Payment persisted with canonical paymentIntentId
+- Receipt shows PAID with correct gross / fee / net
+
+Example:
+EUR 1.00 -> fee EUR 0.10 -> net EUR 0.90
