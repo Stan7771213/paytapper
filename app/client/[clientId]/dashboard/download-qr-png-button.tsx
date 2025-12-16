@@ -27,15 +27,10 @@ export function DownloadQrPngButton({
   }
 
   return (
-    <div className="inline-flex items-center gap-2">
+    <div className="inline-flex items-center gap-3">
       {/* Hidden high-res canvas used only for PNG export */}
       <div className="sr-only">
-        <QRCodeCanvas
-          value={value}
-          size={size}
-          includeMargin
-          ref={setCanvas}
-        />
+        <QRCodeCanvas value={value} size={size} includeMargin ref={setCanvas} />
       </div>
 
       <button
@@ -43,8 +38,12 @@ export function DownloadQrPngButton({
         className="inline-flex items-center justify-center rounded-md border px-3 py-2 text-sm font-medium hover:bg-gray-50"
         onClick={handleDownload}
       >
-        Download QR (PNG)
+        Download QR code (PNG)
       </button>
+
+      <span className="text-xs text-muted-foreground">
+        Use this for posters, stickers, or sharing.
+      </span>
     </div>
   );
 }
