@@ -88,17 +88,18 @@ function BrandingPreview({
 
   return (
     <section className="border rounded-lg p-4 space-y-3">
-      <h2 className="font-semibold">Tip page branding</h2>
+      <div className="space-y-1">
+        <h2 className="font-semibold">Tip page branding</h2>
+        <p className="text-sm text-gray-600">
+          This is how your tip page header appears to guests.
+        </p>
+      </div>
 
       {!hasAnyBranding ? (
         <p className="text-sm text-gray-600">
-          No branding yet. Your tip page will use a clean default Paytapper look.
+          No branding yet. Your tip page will use a clean default look.
         </p>
-      ) : (
-        <p className="text-sm text-gray-600">
-          This is how the header of your tip page will look to guests.
-        </p>
-      )}
+      ) : null}
 
       <div className="rounded-xl border bg-white p-4">
         <div className="flex items-start gap-3">
@@ -156,12 +157,17 @@ function PaymentStats({ payments }: { payments: Payment[] }) {
 
   return (
     <section className="border rounded-lg p-4 space-y-3">
-      <h2 className="font-semibold">Payments overview</h2>
+      <div className="space-y-1">
+        <h2 className="font-semibold">Payments overview</h2>
+        <p className="text-sm text-gray-600">
+          This updates automatically after a payment is completed.
+        </p>
+      </div>
 
       {total === 0 ? (
         <p className="text-sm text-gray-600">
-          No payments yet. As soon as someone completes a tip, it will appear
-          here automatically.
+          No payments yet. Share your tip link — new payments will appear here
+          automatically.
         </p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -237,7 +243,12 @@ function RecentPaymentsList({
   return (
     <section className="border rounded-lg p-4 space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <h3 className="font-semibold">Recent payments</h3>
+        <div className="space-y-1">
+          <h3 className="font-semibold">Recent payments</h3>
+          <p className="text-sm text-gray-600">
+            Includes gross, platform fee, and net amounts.
+          </p>
+        </div>
         <p className="text-xs text-gray-600">
           Showing {Math.min(limit, totalCount)} of {totalCount}
         </p>
@@ -339,15 +350,20 @@ export default async function ClientDashboardPage({
   const showTestModeProdWarning = stripeMode === "test" && !isLocalBaseUrl;
 
   const branding: Client["branding"] | undefined = client?.branding;
-  const displayName =
-    client?.branding?.title ?? client?.displayName ?? undefined;
+  const displayName = client?.branding?.title ?? client?.displayName ?? undefined;
 
   return (
     <main className="max-w-xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">
-          {displayName ? `${displayName} dashboard` : "Client dashboard"}
-        </h1>
+        <div>
+          <h1 className="text-2xl font-semibold">
+            {displayName ? `${displayName} dashboard` : "Client dashboard"}
+          </h1>
+          <p className="text-sm text-gray-600">
+            Share your link, track payments, and manage Stripe connection.
+          </p>
+        </div>
+
         <span className="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold">
           Stripe mode: {stripeMode === "live" ? "LIVE" : "TEST"}
         </span>
@@ -361,42 +377,53 @@ export default async function ClientDashboardPage({
             <span className="break-all">({publicBaseUrl})</span>. Do not share
             this link publicly.
           </p>
+          <p className="mt-2 text-sm text-gray-700">
+            Switch to live mode only when you are ready to accept real payments.
+          </p>
         </section>
       ) : null}
 
       <section className="border rounded-lg p-4 space-y-2">
-        <h2 className="font-semibold">Profile</h2>
+        <div className="space-y-1">
+          <h2 className="font-semibold">Profile</h2>
+          <p className="text-sm text-gray-600">
+            Internal details for this Paytapper client.
+          </p>
+        </div>
+
         <p>
           <strong>Client ID:</strong> {clientId}
         </p>
-        {client?.displayName && (
+        {client?.displayName ? (
           <p>
             <strong>Name:</strong> {client.displayName}
           </p>
-        )}
-        {client?.email && (
+        ) : null}
+        {client?.email ? (
           <p>
             <strong>Email:</strong> {client.email}
           </p>
-        )}
-        {!client && (
+        ) : null}
+
+        {!client ? (
           <p className="text-sm text-gray-600">
-            No client record yet. It will be created automatically after you
-            start Stripe onboarding.
+            No client record found. If this is unexpected, create a new client
+            first and open its dashboard again.
           </p>
-        )}
+        ) : null}
       </section>
 
       <BrandingPreview branding={branding} displayName={displayName} />
 
       <section className="border rounded-lg p-4 space-y-3">
-        <h2 className="font-semibold">Share link & QR</h2>
+        <div className="space-y-1">
+          <h2 className="font-semibold">Share link & QR</h2>
+          <p className="text-sm text-gray-700">
+            Share your link with guests or print the QR code for quick access.
+          </p>
+        </div>
 
         <div className="space-y-2">
-          <p className="text-sm text-gray-700">
-            Share your link with guests, or print the QR code.
-          </p>
-
           <p className="break-all">
             <a className="underline" href={tipPath}>
               {tipPath}
@@ -442,7 +469,12 @@ export default async function ClientDashboardPage({
       </section>
 
       <section className="border rounded-lg p-4 space-y-3">
-        <h2 className="font-semibold">Stripe connection</h2>
+        <div className="space-y-1">
+          <h2 className="font-semibold">Stripe connection</h2>
+          <p className="text-sm text-gray-600">
+            Connect Stripe to receive payouts to your account.
+          </p>
+        </div>
 
         <p>
           <strong>Status:</strong>{" "}
@@ -457,35 +489,37 @@ export default async function ClientDashboardPage({
           <strong>Stripe account ID:</strong> {stripeAccountId ?? "—"}
         </p>
 
-        {onboardingParam === "return" && (
+        {onboardingParam === "return" ? (
           <p className="text-sm text-green-600">
-            You returned from Stripe onboarding. Your account status will update
-            shortly.
+            You returned from Stripe onboarding. Your status will update shortly.
           </p>
-        )}
+        ) : null}
 
-        {onboardingParam === "refresh" && (
+        {onboardingParam === "refresh" ? (
           <p className="text-sm text-yellow-600">
-            There was an issue with onboarding. Please try again.
+            Stripe needs a bit more information. Please try onboarding again.
           </p>
-        )}
+        ) : null}
 
         <StartOnboardingButton clientId={clientId} />
 
-        {isConnected && (
+        {isConnected ? (
           <div className="pt-3">
             <OpenStripeDashboardButton />
           </div>
-        )}
+        ) : null}
       </section>
 
       <PaymentStats payments={payments} />
 
       <section className="border rounded-lg p-4 space-y-3">
-        <h3 className="font-semibold">Reports</h3>
-        <p className="text-sm text-gray-600">
-          Download your payment history as CSV.
-        </p>
+        <div className="space-y-1">
+          <h3 className="font-semibold">Reports</h3>
+          <p className="text-sm text-gray-600">
+            Download your payment history as a CSV file.
+          </p>
+        </div>
+
         <div className="flex flex-wrap gap-3">
           <DownloadPaymentsCsvButton clientId={clientId} />
         </div>
