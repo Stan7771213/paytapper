@@ -9,7 +9,7 @@ export function OpenStripeDashboardButton() {
 
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
-  // /client/[clientId]/dashboard → ["client", "test123", "dashboard"]
+  // /client/[clientId]/dashboard → ["client", "<clientId>", "dashboard"]
   const clientId = segments[1] || "";
 
   async function handleClick() {
@@ -18,7 +18,7 @@ export function OpenStripeDashboardButton() {
       setError(null);
 
       if (!clientId) {
-        throw new Error("clientId is missing on this page");
+        throw new Error("Client ID is missing on this page.");
       }
 
       const res = await fetch("/api/stripe/login", {
@@ -28,21 +28,34 @@ export function OpenStripeDashboardButton() {
       });
 
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
+        const data: unknown = await res.json().catch(() => ({}));
+        const maybeError =
+          typeof data === "object" && data !== null && "error" in data
+            ? (data as { error?: unknown }).error
+            : undefined;
+
         throw new Error(
-          data.error || "Failed to create Stripe login link"
+          typeof maybeError === "string"
+            ? maybeError
+            : "Could not create a Stripe login link."
         );
       }
 
-      const data = await res.json();
-      if (!data.url) {
-        throw new Error("Stripe login URL is missing");
+      const data: unknown = await res.json();
+      const url =
+        typeof data === "object" && data !== null && "url" in data
+          ? (data as { url?: unknown }).url
+          : undefined;
+
+      if (typeof url !== "string" || !url.trim()) {
+        throw new Error("Stripe login URL is missing.");
       }
 
-      window.location.href = data.url;
-    } catch (err: any) {
+      window.location.href = url;
+    } catch (err: unknown) {
       console.error(err);
-      setError(err.message || "Something went wrong");
+      const message = err instanceof Error ? err.message : "Something went wrong.";
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -56,14 +69,14 @@ export function OpenStripeDashboardButton() {
         disabled={loading}
         className="px-4 py-2 rounded-md border text-sm font-medium hover:bg-gray-100 disabled:opacity-50"
       >
-        {loading ? "Opening Stripe..." : "Open Stripe Dashboard"}
+        {loading ? "Opening Stripe…" : "Open Stripe dashboard"}
       </button>
-      {error && (
-        <p className="text-sm text-red-600">
-          {error}
-        </p>
-      )}
+
+      <p className="text-xs text-muted-foreground">
+        This opens your Stripe dashboard in a secure session.
+      </p>
+
+      {error ? <p className="text-sm text-red-600">{error}</p> : null}
     </div>
   );
 }
-
