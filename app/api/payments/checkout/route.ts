@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
 import { getClientById } from "@/lib/clientStore";
 import { PLATFORM_FEE_PERCENT } from "@/lib/types";
+import {
+  deriveStripeConnectState,
+  extractConnectSignals,
+} from "@/lib/stripeConnect";
 
 function getBaseUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_BASE_URL;
@@ -35,35 +39,46 @@ function calcPlatformFeeCents(amountCents: number): number {
   return Math.round((amountCents * PLATFORM_FEE_PERCENT) / 100);
 }
 
-type ConnectEligibility = {
-  shouldRouteToConnect: boolean;
-  destinationAccountId?: string;
+type ConnectRouting = {
+  mode: "platform" | "connect";
+  destinationAccountId: string | null;
 };
 
-async function resolveConnectEligibility(clientId: string): Promise<ConnectEligibility> {
+async function resolveConnectRoutingOrBlock(
+  clientId: string
+): Promise<ConnectRouting> {
   const client = await getClientById(clientId);
   if (!client) {
     throw new Error("Client not found");
   }
 
   const payoutMode = client.payoutMode;
+
+  // platform mode: always allowed (v1 fallback)
+  if (payoutMode === "platform") {
+    return { mode: "platform", destinationAccountId: null };
+  }
+
+  // direct mode: must be active to accept payments
   const accountId = client.stripe?.accountId?.trim();
-
-  if (payoutMode !== "direct" || !accountId) {
-    return { shouldRouteToConnect: false };
+  if (!accountId) {
+    const err = new Error("DIRECT_NOT_READY");
+    (err as { code?: string }).code = "DIRECT_NOT_READY";
+    throw err;
   }
 
-  // Derive "connected" from Stripe (do not store flags in JSON).
   const acct = await stripe.accounts.retrieve(accountId);
-  const chargesEnabled = Boolean(acct.charges_enabled);
-  const detailsSubmitted = Boolean(acct.details_submitted);
+  const signals = extractConnectSignals(accountId, acct);
+  const state = deriveStripeConnectState(signals);
 
-  const connected = chargesEnabled && detailsSubmitted;
-  if (!connected) {
-    return { shouldRouteToConnect: false, destinationAccountId: accountId };
+  if (state !== "active") {
+    const err = new Error("DIRECT_NOT_READY");
+    (err as { code?: string; state?: string }).code = "DIRECT_NOT_READY";
+    (err as { code?: string; state?: string }).state = state;
+    throw err;
   }
 
-  return { shouldRouteToConnect: true, destinationAccountId: accountId };
+  return { mode: "connect", destinationAccountId: accountId };
 }
 
 export async function POST(req: NextRequest) {
@@ -85,14 +100,29 @@ export async function POST(req: NextRequest) {
     const amountCents = body.amountCents;
     const baseUrl = getBaseUrl();
 
-    let eligibility: ConnectEligibility;
+    let routing: ConnectRouting;
     try {
-      eligibility = await resolveConnectEligibility(clientId);
-    } catch (e) {
+      routing = await resolveConnectRoutingOrBlock(clientId);
+    } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Unknown error";
+
       if (message === "Client not found") {
         return NextResponse.json({ error: "Client not found" }, { status: 404 });
       }
+
+      const code = typeof e === "object" && e !== null && "code" in e ? (e as { code?: unknown }).code : undefined;
+      const state = typeof e === "object" && e !== null && "state" in e ? (e as { state?: unknown }).state : undefined;
+
+      if (code === "DIRECT_NOT_READY") {
+        return NextResponse.json(
+          {
+            error: "This creator is not ready to accept payments yet.",
+            details: typeof state === "string" ? { stripeState: state } : undefined,
+          },
+          { status: 409 }
+        );
+      }
+
       return NextResponse.json(
         { error: "Unable to resolve Stripe Connect status", details: message },
         { status: 500 }
@@ -110,9 +140,9 @@ export async function POST(req: NextRequest) {
       metadata: { clientId },
     };
 
-    if (eligibility.shouldRouteToConnect && eligibility.destinationAccountId) {
+    if (routing.mode === "connect" && routing.destinationAccountId) {
       paymentIntentData.application_fee_amount = platformFeeCents;
-      paymentIntentData.transfer_data = { destination: eligibility.destinationAccountId };
+      paymentIntentData.transfer_data = { destination: routing.destinationAccountId };
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -137,10 +167,8 @@ export async function POST(req: NextRequest) {
       checkoutSessionId: session.id,
       url: session.url,
       routing: {
-        mode: eligibility.shouldRouteToConnect ? "connect" : "platform",
-        destinationAccountId: eligibility.shouldRouteToConnect
-          ? eligibility.destinationAccountId ?? null
-          : null,
+        mode: routing.mode,
+        destinationAccountId: routing.destinationAccountId,
       },
     });
   } catch (err) {

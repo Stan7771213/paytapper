@@ -57,10 +57,14 @@ export default function TipClient({ clientId, displayName, branding }: TipClient
       const data = (await response.json()) as CheckoutResponse;
 
       if (!response.ok) {
+        if (response.status === 409) {
+          throw new Error("This creator is not ready to accept payments yet.");
+        }
+
         const msg =
-          'error' in data && typeof data.error === 'string'
+          "error" in data && typeof data.error === "string"
             ? data.error
-            : 'Failed to create checkout session';
+            : "Failed to create checkout session";
         throw new Error(msg);
       }
 
