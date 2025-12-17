@@ -7,6 +7,15 @@ interface StartOnboardingButtonProps {
   clientId?: string; // Optional: we primarily read from the URL
 }
 
+type ApiErrorResponse = { error?: unknown };
+
+function getErrorMessage(data: unknown): string | null {
+  if (typeof data !== "object" || data === null) return null;
+  if (!("error" in data)) return null;
+  const err = (data as ApiErrorResponse).error;
+  return typeof err === "string" ? err : null;
+}
+
 export function StartOnboardingButton({ clientId }: StartOnboardingButtonProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,27 +37,33 @@ export function StartOnboardingButton({ clientId }: StartOnboardingButtonProps) 
         throw new Error("Client ID is missing on this page.");
       }
 
-      const res = await fetch("/api/connect/onboard", {
+      // 1) Ensure a connected account exists (idempotent).
+      const createRes = await fetch("/api/connect/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ clientId: effectiveClientId }),
       });
 
-      if (!res.ok) {
-        const data: unknown = await res.json().catch(() => ({}));
-        const maybeError =
-          typeof data === "object" && data !== null && "error" in data
-            ? (data as { error?: unknown }).error
-            : undefined;
-
-        throw new Error(
-          typeof maybeError === "string"
-            ? maybeError
-            : "Could not create a Stripe onboarding link."
-        );
+      if (!createRes.ok) {
+        const data: unknown = await createRes.json().catch(() => ({}));
+        const message = getErrorMessage(data);
+        throw new Error(message ?? "Could not create a Stripe connected account.");
       }
 
-      const data: unknown = await res.json();
+      // 2) Request an onboarding link (requires accountId).
+      const onboardRes = await fetch("/api/connect/onboard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: effectiveClientId }),
+      });
+
+      if (!onboardRes.ok) {
+        const data: unknown = await onboardRes.json().catch(() => ({}));
+        const message = getErrorMessage(data);
+        throw new Error(message ?? "Could not create a Stripe onboarding link.");
+      }
+
+      const data: unknown = await onboardRes.json();
       const url =
         typeof data === "object" && data !== null && "url" in data
           ? (data as { url?: unknown }).url

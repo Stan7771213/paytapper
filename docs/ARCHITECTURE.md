@@ -176,6 +176,7 @@ Rules:
 - Content-Type: text/csv; charset=utf-8
 - Content-Disposition: attachment; filename="paytapper-payments-{clientId}.csv"
 Stripe Connect
+POST /api/connect/create
 POST /api/connect/onboard
 GET /api/connect/status
 Used to connect a client’s Stripe account.
@@ -318,10 +319,75 @@ Goal: allow a client (guide/driver/creator) to connect their own Stripe account 
 Client.stripe.accountId
 - Must be set when onboarding starts (created or reused deterministically).
 - Must never be overwritten once set.
-- Connection status is derived from Stripe API (not stored as a boolean).
+- Stripe onboarding links must NEVER be stored (they are created on demand).
+- Connection status / state is ALWAYS derived from Stripe API (not stored as a boolean or enum).
+
+### Client Stripe State Machine (derived, v1)
+We model Stripe connection as a derived state machine for UI + guardrails.
+
+States:
+- stripe: not_created
+- stripe: onboarding
+- stripe: restricted
+- stripe: active
+
+Derivation rules (server-side, from Stripe Account retrieval):
+Input signals:
+- hasAccountId: client.stripe.accountId exists
+- chargesEnabled: account.charges_enabled
+- detailsSubmitted: account.details_submitted
+- requirementsDue: account.requirements.currently_due (array)
+- requirementsPastDue: account.requirements.past_due (array)
+- disabledReason: account.requirements.disabled_reason (string | null)
+
+State derivation:
+- not_created:
+  - !hasAccountId
+- onboarding:
+  - hasAccountId AND detailsSubmitted == false
+- restricted:
+  - hasAccountId AND detailsSubmitted == true AND chargesEnabled == false
+  - OR hasAccountId AND (len(requirementsPastDue) > 0 OR disabledReason is set)
+- active:
+  - hasAccountId AND detailsSubmitted == true AND chargesEnabled == true
+Notes:
+- We intentionally do NOT persist this state; it is computed on every status check.
+- If Stripe retrieval fails, surface a clear error (no guesses).
+
+### UI rules (must follow the derived state)
+Dashboard:
+- Show primary CTA “Connect Stripe” ONLY when state != active.
+- Show Stripe status pill using the derived state:
+  - not_created / onboarding / restricted / active.
+- Show QR + tip link:
+  - If payoutMode="direct": show QR only when state == active, otherwise show a disabled QR placeholder + explanation.
+  - If payoutMode="platform": QR may be shown regardless of Stripe connect state (v1 fallback mode).
+
+Tip page (/tip/[clientId]) payment guardrails:
+- If client.payoutMode="direct" AND state != active:
+  - Block checkout creation server-side with a clear 409-style error payload.
+  - Tip page must render a simple message: “This creator is not ready to accept payments yet.”
+- If payoutMode="platform":
+  - Allow checkout as usual (v1 fallback).
+
+### Email events (v1)
+We send emails based on lifecycle events (idempotent policies apply per message-id / event key).
+
+Events:
+- welcome:
+  - When a Client is created (POST /api/clients).
+  - Content: “Account created” + CTA to dashboard + reminder to connect Stripe if payoutMode="direct".
+- stripe reminder:
+  - Triggered if payoutMode="direct" AND state in {not_created, onboarding, restricted}.
+  - Delivery mechanism (v1): manual/cron later; architecture requires idempotency keys.
+- stripe completed + QR:
+  - Triggered when state transitions to active (derived by status check).
+  - Content: “Stripe connected” + QR + tip link.
+  - Rule: QR must not be sent before state == active.
 
 ### API routes (Connect)
-POST /api/connect/onboard
+
+POST /api/connect/create
 Input:
 - clientId (required)
 
@@ -329,6 +395,19 @@ Behavior:
 1) Validate client exists.
 2) If client.stripe.accountId is missing:
    - create a Stripe Connect account (type: "express" for v1) and persist accountId.
+3) If accountId already exists: return it (idempotent).
+
+Output (v1):
+- { accountId: string }
+
+POST /api/connect/onboard
+Input:
+- clientId (required)
+
+Behavior:
+1) Validate client exists.
+2) Require client.stripe.accountId to exist.
+   - If missing: return 409 with a clear error: "Stripe account not created yet".
 3) Create an Account Link for onboarding / refresh / return.
 4) Return a redirect URL to Stripe onboarding.
 

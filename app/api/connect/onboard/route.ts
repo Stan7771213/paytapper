@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { stripe } from "@/lib/stripe";
-import { getClientById, updateClient } from "@/lib/clientStore";
+import { getClientById } from "@/lib/clientStore";
 
 type OnboardRequest = {
   clientId: string;
 };
+
+type OnboardResponse = {
+  url: string;
+};
+
+function json(data: unknown, status = 200) {
+  return NextResponse.json(data, { status });
+}
 
 function getBaseUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_BASE_URL;
@@ -16,7 +24,6 @@ function getBaseUrl(): string {
     return v.startsWith("http") ? v : `https://${v}`;
   }
 
-  // Local default
   return "http://localhost:3000";
 }
 
@@ -24,31 +31,20 @@ export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as Partial<OnboardRequest>;
     const clientId = body.clientId?.trim();
+
     if (!clientId) {
-      return NextResponse.json({ error: "clientId is required" }, { status: 400 });
+      return json({ error: "clientId is required" }, 400);
     }
 
     const client = await getClientById(clientId);
     if (!client) {
-      return NextResponse.json({ error: "Client not found" }, { status: 404 });
+      return json({ error: "Client not found" }, 404);
     }
 
-    let accountId = client.stripe?.accountId?.trim();
-
+    const accountId = client.stripe?.accountId?.trim();
     if (!accountId) {
-      const account = await stripe.accounts.create({
-        type: "express",
-        email: client.email ?? undefined,
-        metadata: {
-          clientId,
-        },
-      });
-
-      accountId = account.id;
-
-      await updateClient(clientId, {
-        stripe: { accountId },
-      });
+      // Architecture: /connect/create must run first (idempotent ensure).
+      return json({ error: "Stripe account not created yet" }, 409);
     }
 
     const baseUrl = getBaseUrl();
@@ -62,14 +58,15 @@ export async function POST(req: NextRequest) {
       refresh_url: refreshUrl,
     });
 
-    return NextResponse.json({ url: link.url });
+    const payload: OnboardResponse = { url: link.url };
+    return json(payload, 200);
   } catch (e) {
     const message = e instanceof Error ? e.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return json({ error: message }, 500);
   }
 }
 
 // Keep GET explicit (no accidental onboarding by browser navigation)
 export async function GET() {
-  return NextResponse.json({ error: "Method Not Allowed" }, { status: 405 });
+  return json({ error: "Method Not Allowed" }, 405);
 }
