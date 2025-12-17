@@ -9,7 +9,9 @@ import {
   type StripeConnectState,
 } from "@/lib/stripeConnect";
 
-type ConnectStatusResponse = {
+export const runtime = "nodejs";
+
+type ConnectSyncResponse = {
   state: StripeConnectState;
   connected: boolean;
   accountId: string;
@@ -17,7 +19,6 @@ type ConnectStatusResponse = {
   chargesEnabled: boolean;
   detailsSubmitted: boolean;
 
-  // extra signals for UI/debugging (counts only, no arrays)
   signals: StripeConnectSignals;
 };
 
@@ -47,10 +48,9 @@ async function maybeSendStripeConnectedEmail(params: {
 }) {
   const { clientId, clientEmail, payoutMode, alreadySentAt, state } = params;
 
-  // Only relevant for direct payouts; platform mode does not require Connect to accept payments.
+  // Only direct payout mode requires Connect readiness.
   if (payoutMode !== "direct") return;
 
-  // Must be active, must have email, must not have sent already.
   if (state !== "active") return;
   if (!clientEmail || !clientEmail.trim()) return;
   if (alreadySentAt && alreadySentAt.trim()) return;
@@ -64,18 +64,29 @@ async function maybeSendStripeConnectedEmail(params: {
     tipUrl,
   });
 
-  // Idempotency: only stamp when email was actually sent successfully.
-  if (result.success) {
-    await updateClient(clientId, {
-      emailEvents: { stripeConnectedSentAt: new Date().toISOString() },
+  if (!result.success) {
+    console.warn("[connect-sync] stripeConnectedEmail not sent", {
+      clientId,
+      mode: result.mode,
+      message: result.message,
     });
+    return;
   }
+
+  await updateClient(clientId, {
+    emailEvents: { stripeConnectedSentAt: new Date().toISOString() },
+  });
+
+  console.info("[connect-sync] stripeConnectedEmail sent", { clientId });
 }
 
-export async function GET(req: NextRequest) {
+type Body = { clientId?: unknown };
+
+export async function POST(req: NextRequest) {
   try {
-    const { searchParams } = new URL(req.url);
-    const clientId = searchParams.get("clientId")?.trim();
+    const body = (await req.json()) as Body;
+    const clientId =
+      typeof body.clientId === "string" ? body.clientId.trim() : "";
 
     if (!clientId) {
       return json({ error: "Missing clientId" }, 400);
@@ -92,8 +103,7 @@ export async function GET(req: NextRequest) {
       const signals = extractConnectSignals(undefined, null);
       const state = deriveStripeConnectState(signals);
 
-      // No accountId => cannot be active, so no email trigger here.
-      const payload: ConnectStatusResponse = {
+      const payload: ConnectSyncResponse = {
         state,
         connected: false,
         accountId: "",
@@ -114,8 +124,6 @@ export async function GET(req: NextRequest) {
     const detailsSubmitted = Boolean(acct.details_submitted);
     const connected = state === "active";
 
-    // Side-effect (idempotent): send "Stripe connected + QR" once on first observed active state.
-    // IMPORTANT: we do NOT persist connection flags, only the email event timestamp.
     await maybeSendStripeConnectedEmail({
       clientId,
       clientEmail: client.email,
@@ -124,7 +132,7 @@ export async function GET(req: NextRequest) {
       state,
     });
 
-    const payload: ConnectStatusResponse = {
+    const payload: ConnectSyncResponse = {
       state,
       connected,
       accountId,
@@ -140,7 +148,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Keep non-GET methods explicit.
-export async function POST() {
+export async function GET() {
   return json({ error: "Method Not Allowed" }, 405);
 }

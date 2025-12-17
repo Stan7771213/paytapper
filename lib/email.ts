@@ -57,7 +57,9 @@ export async function sendClientWelcomeEmail(params: {
   }
 
   const baseUrl = getBaseUrl();
-  const dashboardUrl = `${baseUrl}/client/${encodeURIComponent(clientId)}/dashboard`;
+  const dashboardUrl = `${baseUrl}/client/${encodeURIComponent(
+    clientId
+  )}/dashboard`;
 
   const subject = "Welcome to Paytapper";
   const connectLine =
@@ -123,6 +125,112 @@ export async function sendClientWelcomeEmail(params: {
       success: true,
       mode: "resend",
       message: "Welcome email sent via Resend.",
+      data,
+    };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      mode: "resend-error",
+      message: "Exception while sending email via Resend.",
+      error: err,
+    };
+  }
+}
+
+/**
+ * sendStripeConnectedEmail
+ *
+ * Triggered when derived Stripe Connect state transitions to "active".
+ *
+ * Rules:
+ * - Idempotency is handled by caller via client.emailEvents.stripeConnectedSentAt
+ * - QR is not stored; it is generated on demand via /api/qr?value=...
+ * - If RESEND_API_KEY is missing: return {success:false, mode:"disabled"} (no placeholders)
+ */
+export async function sendStripeConnectedEmail(params: {
+  email: string;
+  clientId: string;
+  tipUrl: string; // absolute URL
+}): Promise<EmailSendResult> {
+  const { email, clientId, tipUrl } = params;
+
+  const resend = getResend();
+  if (!resend) {
+    return {
+      success: false,
+      mode: "disabled",
+      message: "Email sending is disabled: RESEND_API_KEY is not set.",
+    };
+  }
+
+  const baseUrl = getBaseUrl();
+  const dashboardUrl = `${baseUrl}/client/${encodeURIComponent(
+    clientId
+  )}/dashboard`;
+
+  const qrUrl = `${baseUrl}/api/qr?value=${encodeURIComponent(tipUrl)}`;
+
+  const subject = "Stripe connected — your Paytapper QR is ready";
+  const html = `
+    <div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #0f172a;">
+      <h1 style="font-size: 24px; margin-bottom: 16px;">Stripe connected ✅</h1>
+
+      <p>You can now accept payments via your Paytapper link and QR code.</p>
+
+      <div style="margin-top: 16px; margin-bottom: 16px; padding: 16px; border: 1px solid #e2e8f0; border-radius: 12px; display: inline-block;">
+        <img src="${qrUrl}" alt="Paytapper QR code" width="240" height="240" style="display:block;" />
+      </div>
+
+      <p style="margin-top: 14px; margin-bottom: 6px;">Your tip link:</p>
+      <p style="margin-top: 0;">
+        <a href="${tipUrl}" style="color: #2563eb; text-decoration: none;">${tipUrl}</a>
+      </p>
+
+      <p style="margin-top: 14px; margin-bottom: 6px;">Your dashboard:</p>
+      <p style="margin-top: 0;">
+        <a href="${dashboardUrl}" style="color: #2563eb; text-decoration: none;">${dashboardUrl}</a>
+      </p>
+
+      <p style="margin-top: 20px; font-size: 12px; color: #64748b;">
+        If you didn’t request this email, you can safely ignore it.
+      </p>
+      <p style="margin-top: 6px; font-size: 12px; color: #94a3b8;">
+        — Paytapper
+      </p>
+    </div>
+  `;
+
+  try {
+    const from = "Paytapper <no-reply@paytapper.net>";
+    if (!isNonEmptyString(from)) {
+      return {
+        success: false,
+        mode: "resend-error",
+        message: "Invalid 'from' address for email.",
+        error: null,
+      };
+    }
+
+    const { data, error } = await resend.emails.send({
+      from,
+      to: email,
+      subject,
+      html,
+    });
+
+    if (error) {
+      return {
+        success: false,
+        mode: "resend-error",
+        message: "Failed to send email via Resend.",
+        error,
+      };
+    }
+
+    return {
+      success: true,
+      mode: "resend",
+      message: "Stripe connected email sent via Resend.",
       data,
     };
   } catch (err: unknown) {

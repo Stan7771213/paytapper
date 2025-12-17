@@ -37,6 +37,7 @@ export async function createClient(input: NewClient): Promise<Client> {
  * Rules:
  * - createdAt must never be overwritten
  * - stripe.accountId must never be overwritten once set
+ * - emailEvents timestamps are set-once (idempotent)
  */
 export async function updateClient(
   clientId: string,
@@ -47,6 +48,10 @@ export async function updateClient(
     payoutMode?: Client["payoutMode"];
     stripe?: { accountId?: string };
     branding?: Client["branding"];
+    emailEvents?: {
+      welcomeSentAt?: string;
+      stripeConnectedSentAt?: string;
+    };
   }
 ): Promise<Client> {
   const clients = await getAllClients();
@@ -56,14 +61,20 @@ export async function updateClient(
   }
 
   const current = clients[idx];
+
   const next: Client = {
     ...current,
-    ...("displayName" in patch ? { displayName: patch.displayName ?? current.displayName } : {}),
+    ...("displayName" in patch
+      ? { displayName: patch.displayName ?? current.displayName }
+      : {}),
     ...("email" in patch ? { email: patch.email } : {}),
-    ...("isActive" in patch ? { isActive: patch.isActive ?? current.isActive } : {}),
-    ...("payoutMode" in patch ? { payoutMode: patch.payoutMode ?? current.payoutMode } : {}),
+    ...("isActive" in patch
+      ? { isActive: patch.isActive ?? current.isActive }
+      : {}),
+    ...("payoutMode" in patch
+      ? { payoutMode: patch.payoutMode ?? current.payoutMode }
+      : {}),
     ...("branding" in patch ? { branding: patch.branding } : {}),
-    // createdAt stays from current (never overwritten)
     createdAt: current.createdAt,
   };
 
@@ -76,8 +87,28 @@ export async function updateClient(
   } else if (incomingAccountId) {
     next.stripe = { ...(next.stripe ?? {}), accountId: incomingAccountId };
   } else if (current.stripe?.accountId || next.stripe?.accountId) {
-    // keep whatever is already there (defensive)
-    next.stripe = { ...(next.stripe ?? {}), accountId: current.stripe?.accountId };
+    next.stripe = {
+      ...(next.stripe ?? {}),
+      accountId: current.stripe?.accountId,
+    };
+  }
+
+  // Email events: timestamps are set-once
+  if (patch.emailEvents) {
+    next.emailEvents = {
+      ...(current.emailEvents ?? {}),
+      ...(patch.emailEvents.welcomeSentAt &&
+      !current.emailEvents?.welcomeSentAt
+        ? { welcomeSentAt: patch.emailEvents.welcomeSentAt }
+        : {}),
+      ...(patch.emailEvents.stripeConnectedSentAt &&
+      !current.emailEvents?.stripeConnectedSentAt
+        ? {
+            stripeConnectedSentAt:
+              patch.emailEvents.stripeConnectedSentAt,
+          }
+        : {}),
+    };
   }
 
   clients[idx] = next;

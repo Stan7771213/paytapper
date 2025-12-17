@@ -6,6 +6,7 @@ import { OpenStripeDashboardButton } from "./open-stripe-dashboard-button";
 import { DownloadQrPngButton } from "./download-qr-png-button";
 import { CopyTipLinkButton } from "./copy-tip-link-button";
 import { DownloadPaymentsCsvButton } from "./download-payments-csv-button";
+import { ConnectSyncOnMount } from "./connect-sync-on-mount";
 import QRCode from "react-qr-code";
 
 type DashboardPageProps = {
@@ -63,12 +64,21 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
     client.payoutMode === "platform" ||
     (client.payoutMode === "direct" && stripeState === "active");
 
+  // Side-effects live in POST /api/connect/sync, not in GET /status.
+  // Run sync on dashboard mount in direct mode until:
+  // - state is active, AND
+  // - stripeConnected email is stamped as sent.
+  const shouldRunConnectSync =
+    client.payoutMode === "direct" &&
+    (stripeState !== "active" || !client.emailEvents?.stripeConnectedSentAt);
+
   return (
     <main className="max-w-5xl mx-auto p-6 space-y-6">
+      <ConnectSyncOnMount clientId={clientId} shouldRun={shouldRunConnectSync} />
+
       <header className="space-y-2">
         <h1 className="text-2xl font-semibold">Dashboard</h1>
 
-        {/* Keep visible for now while we validate flows */}
         <p className="text-sm text-gray-600">
           Stripe status: <strong>{stripeState}</strong>
         </p>

@@ -23,6 +23,11 @@ export type Client = {
     description?: string;
     avatarUrl?: string;
   };
+
+  emailEvents?: {
+    welcomeSentAt?: string; // ISO
+    stripeConnectedSentAt?: string; // ISO
+  };
 };
 
 export type NewClient = {
@@ -71,4 +76,3 @@ export type NewPayment = {
   amountCents: number;
   currency?: Currency;
 };
-
