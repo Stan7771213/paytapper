@@ -68,6 +68,11 @@ Client {
     description?: string
     avatarUrl?: string
   }
+
+  emailEvents?: {
+    welcomeSentAt?: string // ISO, set once when welcome email is sent
+    stripeConnectedSentAt?: string // ISO, set once when "Stripe connected + QR" email is sent
+  }
 }
 NewClient
 Used when creating a client.
