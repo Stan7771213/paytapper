@@ -202,32 +202,42 @@ calculate platform fee (10%) server-side
 upsert payment via paymentStore using:
 upsertPaymentByPaymentIntentId(paymentIntentId, data)
 never persist placeholders; all persisted Stripe IDs must be real
-Frontend Pages
-Landing
-/
-Marketing only. No core logic.
-Tip Page
-/tip/[clientId]
-Customer-facing payment page.
-fixed amounts
-custom amount
-Stripe Checkout redirect
+## Public Pages & Routing (v1)
 
-Tip page guardrail (v1)
-- If STRIPE_MODE is "test", the tip page must show a small, neutral server-rendered badge: "Test payments" (informational only)
-- No warning banner here (dashboard handles warnings)
-- No changes to checkout or webhook logic
-Success Page
-/success
-Displayed after Stripe redirect.
-Receipt (v1):
-- Accepts Stripe Checkout query param: session_id
-- Must render a visible Stripe mode badge: TEST or LIVE (server-rendered)
-- Resolves paymentIntentId by retrieving the Checkout Session from Stripe
-- Reads the persisted Payment record from JSON storage (paymentStore) using the canonical key (stripe.paymentIntentId)
-- Optionally reads Client branding (clientStore) to display client name/avatar
-- Displays: status, gross, fee, net, date, and a short payment reference
-- If the Payment record is not found yet (webhook delay), falls back to Stripe session amount and shows a "processing" hint
+### `/` — Root (Landing / Entry Point)
+
+The root page (`/`) is the primary public entry point of the product.
+
+Behavior:
+- If a valid session exists:
+  - redirect to `/client/{clientId}/dashboard`
+- If no session exists:
+  - render the public landing page
+  - provide CTA to `/register`
+  - provide access to demo tip page
+
+The root page is **not a placeholder** and is considered production-ready in v1.
+
+---
+
+### `/tip/{clientId}` — Tip Page
+
+Public, no-auth page used by guests to send tips.
+
+Special cases:
+- `/tip/demo` — demo tip page used from the landing
+- real payments only (no sandbox UI flows)
+
+---
+
+### `/register` / `/login`
+
+Authentication entry points for clients (receivers of tips).
+
+After successful auth:
+- redirect to `/client/{clientId}/dashboard`
+
+
 Client Dashboard
 /client/[clientId]/dashboard
 Displays:
