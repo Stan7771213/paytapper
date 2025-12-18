@@ -1,133 +1,114 @@
+import { redirect, notFound } from "next/navigation";
+import { getSession } from "@/lib/session";
 import { getClientById } from "@/lib/clientStore";
-import { getPaymentsByClientId } from "@/lib/paymentStore";
-import type { StripeConnectState } from "@/lib/stripeConnect";
 import { StartOnboardingButton } from "./start-onboarding-button";
 import { OpenStripeDashboardButton } from "./open-stripe-dashboard-button";
-import { DownloadQrPngButton } from "./download-qr-png-button";
-import { CopyTipLinkButton } from "./copy-tip-link-button";
-import { DownloadPaymentsCsvButton } from "./download-payments-csv-button";
-import { ConnectSyncOnMount } from "./connect-sync-on-mount";
-import QRCode from "react-qr-code";
 
 type DashboardPageProps = {
   params: Promise<{ clientId: string }>;
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+  searchParams?: Promise<{
+    [key: string]: string | string[] | undefined;
+  }>;
 };
 
-async function getStripeConnectState(clientId: string): Promise<StripeConnectState> {
-  const base =
-    process.env.NEXT_PUBLIC_BASE_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
-
-  const res = await fetch(
-    `${base}/api/connect/status?clientId=${encodeURIComponent(clientId)}`,
-    { cache: "no-store" }
-  );
-
-  if (!res.ok) {
-    throw new Error("Failed to resolve Stripe Connect status");
+export default async function ClientDashboardPage({
+  params,
+  searchParams,
+}: DashboardPageProps) {
+  const session = await getSession();
+  if (!session) {
+    redirect("/login");
   }
 
-  const data: unknown = await res.json();
-  if (
-    typeof data === "object" &&
-    data !== null &&
-    "state" in data &&
-    typeof (data as { state?: unknown }).state === "string"
-  ) {
-    return (data as { state: StripeConnectState }).state;
-  }
-
-  throw new Error("Invalid Stripe Connect status payload");
-}
-
-export default async function DashboardPage({ params }: DashboardPageProps) {
+  // params и searchParams — Promise
   const { clientId } = await params;
 
-  const client = await getClientById(clientId);
-  if (!client) {
-    throw new Error("Client not found");
+  if (session.clientId !== clientId) {
+    notFound(); // не раскрываем существование clientId
   }
 
-  const payments = await getPaymentsByClientId(clientId);
+  const search = (searchParams ? await searchParams : {}) ?? {};
+  const onboardingParam = search.onboarding as
+    | string
+    | string[]
+    | undefined;
 
-  // Derived Stripe state (server-side, canonical)
-  const stripeState = await getStripeConnectState(clientId);
-
-  const tipUrl = `/tip/${clientId}`;
-  const publicBase =
-    process.env.NEXT_PUBLIC_BASE_URL ||
-    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
-  const fullTipUrl = `${publicBase}${tipUrl}`;
-
-  const canShowTipAssets =
-    client.payoutMode === "platform" ||
-    (client.payoutMode === "direct" && stripeState === "active");
-
-  // Side-effects live in POST /api/connect/sync, not in GET /status.
-  // Run sync on dashboard mount in direct mode until:
-  // - state is active, AND
-  // - stripeConnected email is stamped as sent.
-  const shouldRunConnectSync =
-    client.payoutMode === "direct" &&
-    (stripeState !== "active" || !client.emailEvents?.stripeConnectedSentAt);
+  const client = await getClientById(clientId);
 
   return (
-    <main className="max-w-5xl mx-auto p-6 space-y-6">
-      <ConnectSyncOnMount clientId={clientId} shouldRun={shouldRunConnectSync} />
+    <main className="max-w-xl mx-auto p-6 space-y-6">
+      <h1 className="text-2xl font-semibold">Client dashboard</h1>
 
-      <header className="space-y-2">
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-
-        <p className="text-sm text-gray-600">
-          Stripe status: <strong>{stripeState}</strong>
+      <section className="border rounded-lg p-4 space-y-2">
+        <h2 className="font-semibold">Client info</h2>
+        <p>
+          <strong>Client ID:</strong> {clientId}
         </p>
-      </header>
 
-      <section className="border rounded-lg p-4 space-y-4">
-        <h2 className="font-semibold">Tip QR & link</h2>
+        {client?.displayName && (
+          <p>
+            <strong>Name:</strong> {client.displayName}
+          </p>
+        )}
 
-        {canShowTipAssets ? (
-          <div className="flex flex-col sm:flex-row gap-6 items-start">
-            <QRCode value={fullTipUrl} size={160} />
+        {client?.email && (
+          <p>
+            <strong>Email:</strong> {client.email}
+          </p>
+        )}
 
-            <div className="space-y-2">
-              <p className="text-sm break-all">{fullTipUrl}</p>
+        {!client && (
+          <p className="text-sm text-gray-600">
+            No client record yet. It will be created automatically after
+            you start Stripe onboarding.
+          </p>
+        )}
+      </section>
 
-              <div className="flex flex-wrap gap-2">
-                <CopyTipLinkButton text={fullTipUrl} />
-                <DownloadQrPngButton
-                  value={fullTipUrl}
-                  filename={`paytapper-tip-${clientId}.png`}
-                />
-              </div>
-            </div>
-          </div>
+      <section className="border rounded-lg p-4 space-y-2">
+        <h2 className="font-semibold">Stripe account</h2>
+
+        {client ? (
+          <>
+            <p>
+              <strong>Stripe account ID:</strong>{" "}
+              {client.stripe?.accountId ?? "—"}
+            </p>
+          </>
         ) : (
-          <div className="rounded-lg border bg-gray-50 p-4 space-y-2">
-            <p className="text-sm font-medium">Tip link is not active yet</p>
-            <p className="text-sm text-gray-600">
-              To show your QR code and accept payments in <strong>direct</strong>{" "}
-              payout mode, you must finish Stripe onboarding.
-            </p>
-            <p className="text-xs text-gray-500">
-              Current state: <strong>{stripeState}</strong>
-            </p>
+          <p className="text-sm text-gray-600">
+            Stripe account is not created yet. Start onboarding to
+            create it.
+          </p>
+        )}
+
+        {onboardingParam === "return" && (
+          <p className="text-sm text-green-600">
+            You returned from Stripe onboarding. Your account status
+            will update shortly.
+          </p>
+        )}
+
+        {onboardingParam === "refresh" && (
+          <p className="text-sm text-yellow-600">
+            There was an issue with onboarding. Please try again.
+          </p>
+        )}
+
+        <StartOnboardingButton clientId={clientId} />
+
+        {client && (
+          <div className="pt-3">
+            <OpenStripeDashboardButton />
           </div>
         )}
       </section>
 
-      <section className="border rounded-lg p-4 space-y-3">
-        <h2 className="font-semibold">Stripe payouts</h2>
-
-        <StartOnboardingButton clientId={clientId} />
-        <OpenStripeDashboardButton />
-      </section>
-
-      <section className="border rounded-lg p-4 space-y-3">
-        <h2 className="font-semibold">Payments</h2>
-        <DownloadPaymentsCsvButton clientId={clientId} />
-        <p className="text-sm text-gray-600">Total payments: {payments.length}</p>
+      <section className="border rounded-lg p-4 space-y-2">
+        <h2 className="font-semibold">Tips overview</h2>
+        <p className="text-sm text-gray-600">
+          Tip history will appear here later.
+        </p>
       </section>
     </main>
   );

@@ -84,3 +84,14 @@ export type NewPayment = {
   amountCents: number;
   currency?: Currency;
 };
+
+// ---------- Auth ----------
+export type UserAuth = {
+  id: string;
+  clientId: string;
+
+  email: string; // normalized (lowercase)
+  passwordHash: string;
+
+  createdAt: string; // ISO
+};
