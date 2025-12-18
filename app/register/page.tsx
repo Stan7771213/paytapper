@@ -1,149 +1,63 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-
-type RegisterOk = {
-  ok: true;
-  clientId?: string;
-};
-
-type RegisterErr = {
-  error: string;
-};
-
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === "object" && v !== null;
-}
+import { useState } from "react";
 
 export default function RegisterPage() {
-  const router = useRouter();
+  const [error, setError] = useState<string | null>(
+    "Registration is temporarily disabled in v1."
+  );
 
-  const [email, setEmail] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
-  const [submitting, setSubmitting] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<boolean>(false);
-
-  const canSubmit = useMemo(() => {
-    return !submitting && email.trim().length > 0 && password.length > 0;
-  }, [submitting, email, password]);
-
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!canSubmit) return;
-
-    setSubmitting(true);
-    setError(null);
-
-    try {
-      const r = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-        }),
-      });
-
-      const data: unknown = await r.json().catch(() => null);
-
-      if (!r.ok) {
-        const msg =
-          isRecord(data) && typeof data.error === "string"
-            ? data.error
-            : "Registration failed";
-        setError(msg);
-        return;
-      }
-
-      if (!isRecord(data) || data.ok !== true) {
-        setError("Unexpected response from server");
-        return;
-      }
-
-      const ok = data as RegisterOk;
-      setDone(true);
-
-      if (typeof ok.clientId === "string" && ok.clientId.trim()) {
-        router.replace(`/client/${ok.clientId}/dashboard`);
-        return;
-      }
-
-      // Session is set server-side. Until the API returns clientId, we safely route to landing.
-      router.replace("/");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Registration failed";
-      setError(msg);
-    } finally {
-      setSubmitting(false);
-    }
+    setError("Registration is temporarily disabled in v1.");
   }
 
   return (
-    <main className="max-w-md mx-auto p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">Create your account</h1>
+    <main className="min-h-screen bg-black text-white flex items-start justify-center p-6">
+      <div className="w-full max-w-md">
+        <h1 className="text-3xl font-semibold mb-8">Create your account</h1>
 
-      <form onSubmit={onSubmit} className="space-y-4">
-        <div className="space-y-1">
-          <label className="text-sm font-medium" htmlFor="email">
-            Email
-          </label>
-          <input
-            id="email"
-            className="w-full border rounded-md px-3 py-2"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={(ev) => setEmail(ev.target.value)}
-            disabled={submitting || done}
-            required
-          />
-        </div>
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm text-gray-300">Email</label>
+            <input
+              className="w-full rounded-md bg-white text-black px-3 py-2 outline-none"
+              type="email"
+              disabled
+              placeholder="you@example.com"
+            />
+          </div>
 
-        <div className="space-y-1">
-          <label className="text-sm font-medium" htmlFor="password">
-            Password
-          </label>
-          <input
-            id="password"
-            className="w-full border rounded-md px-3 py-2"
-            type="password"
-            autoComplete="new-password"
-            value={password}
-            onChange={(ev) => setPassword(ev.target.value)}
-            disabled={submitting || done}
-            required
-          />
-        </div>
+          <div className="space-y-2">
+            <label className="text-sm text-gray-300">Password</label>
+            <input
+              className="w-full rounded-md bg-black text-white border border-gray-700 px-3 py-2 outline-none"
+              type="password"
+              disabled
+              placeholder="********"
+            />
+          </div>
 
-        {error && (
-          <p className="text-sm text-red-600" role="alert">
-            {error}
+          {error ? (
+            <p className="text-sm text-yellow-400">{error}</p>
+          ) : null}
+
+          <button
+            className="w-full rounded-md border border-gray-700 px-3 py-2 text-sm font-medium opacity-60 cursor-not-allowed"
+            type="submit"
+            disabled
+          >
+            Registration disabled
+          </button>
+
+          <p className="text-sm text-gray-500">
+            Already have an account?{" "}
+            <a className="underline hover:text-white" href="/login">
+              Log in
+            </a>
           </p>
-        )}
-
-        {done && !error && (
-          <p className="text-sm text-green-700">
-            Account created. Redirecting…
-          </p>
-        )}
-
-        <button
-          className="w-full border rounded-md px-3 py-2 font-medium"
-          type="submit"
-          disabled={!canSubmit || done}
-        >
-          {submitting ? "Creating…" : "Create account"}
-        </button>
-      </form>
-
-      <p className="text-sm text-gray-600">
-        Already have an account?{" "}
-        <a className="underline" href="/login">
-          Log in
-        </a>
-      </p>
+        </form>
+      </div>
     </main>
   );
 }
