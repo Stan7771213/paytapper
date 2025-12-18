@@ -14,15 +14,16 @@ function requireEnv(name: string): string {
 }
 
 function getWebhookSecret(): string {
-  if (stripeMode === "live") {
-    return requireEnv("STRIPE_WEBHOOK_SECRET_LIVE");
-  }
-  return requireEnv("STRIPE_WEBHOOK_SECRET_TEST");
+  return stripeMode === "live"
+    ? requireEnv("STRIPE_WEBHOOK_SECRET_LIVE")
+    : requireEnv("STRIPE_WEBHOOK_SECRET_TEST");
 }
 
 const webhookSecret = getWebhookSecret();
 
-async function resolveCheckoutSession(paymentIntentId: string): Promise<Stripe.Checkout.Session> {
+async function resolveCheckoutSession(
+  paymentIntentId: string
+): Promise<Stripe.Checkout.Session> {
   const sessions = await stripe.checkout.sessions.list({
     payment_intent: paymentIntentId,
     limit: 1,
@@ -30,7 +31,10 @@ async function resolveCheckoutSession(paymentIntentId: string): Promise<Stripe.C
 
   const session = sessions.data[0];
   if (!session?.id) {
-    throw new Error("Unable to resolve checkout session for paymentIntentId=" + paymentIntentId);
+    throw new Error(
+      "Unable to resolve checkout session for paymentIntentId=" +
+        paymentIntentId
+    );
   }
   return session;
 }
@@ -58,10 +62,8 @@ export async function POST(req: Request) {
   }
 
   const intent = event.data.object as Stripe.PaymentIntent;
-
   const paymentIntentId = intent.id;
 
-  // Deterministically resolve Checkout Session (we never rely on metadata.checkoutSessionId)
   let session: Stripe.Checkout.Session;
   try {
     session = await resolveCheckoutSession(paymentIntentId);
@@ -72,25 +74,22 @@ export async function POST(req: Request) {
 
   const checkoutSessionId = session.id;
 
-  // Determine clientId:
-  // 1) prefer PaymentIntent metadata
-  // 2) otherwise fallback to Checkout Session metadata
   const clientId = intent.metadata?.clientId || session.metadata?.clientId;
-
   if (!clientId) {
-    console.warn("⚠️ Missing clientId (intent.metadata.clientId and session.metadata.clientId), skipping");
+    console.warn("⚠️ Missing clientId, skipping");
     return NextResponse.json({ received: true, skipped: true });
   }
 
   const currency = intent.currency?.toLowerCase();
   if (currency !== "eur") {
-    console.warn('⚠️ Unsupported currency "' + currency + '", skipping');
+    console.warn(`⚠️ Unsupported currency "${currency}", skipping`);
     return NextResponse.json({ received: true, skipped: true });
   }
 
   const grossAmount = intent.amount_received ?? intent.amount ?? 0;
-
-  const platformFeeCents = Math.round(grossAmount * (PLATFORM_FEE_PERCENT / 100));
+  const platformFeeCents = Math.round(
+    grossAmount * (PLATFORM_FEE_PERCENT / 100)
+  );
   const netAmountCents = grossAmount - platformFeeCents;
 
   try {
@@ -101,7 +100,6 @@ export async function POST(req: Request) {
       platformFeeCents,
       netAmountCents,
       status: "paid",
-      createdAt: new Date().toISOString(),
       paidAt: new Date().toISOString(),
       stripe: {
         paymentIntentId,

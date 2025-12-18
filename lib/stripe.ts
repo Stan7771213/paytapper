@@ -19,7 +19,7 @@ function assertLiveAckIfNeeded(mode: StripeMode): void {
   const ack = process.env.PAYTAPPER_LIVE_ACK?.trim();
   if (ack !== "1") {
     throw new Error(
-      'Live mode requires PAYTAPPER_LIVE_ACK=1 to be explicitly set.'
+      "Live mode requires PAYTAPPER_LIVE_ACK=1 to be explicitly set."
     );
   }
 }
@@ -47,6 +47,9 @@ assertStripeEnv(STRIPE_MODE);
 
 const stripeSecretKey = getStripeSecretKey(STRIPE_MODE);
 
-export const stripe = new Stripe(stripeSecretKey);
+export const stripe = new Stripe(stripeSecretKey, {
+  apiVersion: "2025-11-17.clover",
+});
+
 export const stripeMode: StripeMode = STRIPE_MODE;
 export const isLiveMode = STRIPE_MODE === "live";
