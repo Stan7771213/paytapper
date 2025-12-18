@@ -23,6 +23,9 @@ export async function createClient(input: NewClient): Promise<Client> {
     payoutMode: input.payoutMode,
     isActive: true,
     createdAt: new Date().toISOString(),
+
+    // Dashboard access token (set-once)
+    dashboardToken: randomUUID(),
   };
 
   clients.push(client);
@@ -38,6 +41,7 @@ export async function createClient(input: NewClient): Promise<Client> {
  * - createdAt must never be overwritten
  * - stripe.accountId must never be overwritten once set
  * - emailEvents timestamps are set-once (idempotent)
+ * - dashboardToken must NEVER be changed
  */
 export async function updateClient(
   clientId: string,
@@ -76,6 +80,7 @@ export async function updateClient(
       : {}),
     ...("branding" in patch ? { branding: patch.branding } : {}),
     createdAt: current.createdAt,
+    dashboardToken: current.dashboardToken,
   };
 
   // Stripe accountId: set once, never overwrite

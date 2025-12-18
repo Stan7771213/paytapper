@@ -1,8 +1,9 @@
 // app/api/clients/route.ts
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/clientStore";
+import { createClient, updateClient } from "@/lib/clientStore";
 import type { NewClient } from "@/lib/types";
+import { sendClientWelcomeEmail } from "@/lib/email";
 
 function getBaseUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_BASE_URL;
@@ -65,6 +66,27 @@ export async function POST(req: NextRequest) {
       client.id
     )}/dashboard`;
 
+    // --- Welcome email (idempotent, set-once) ---
+    if (
+      client.email &&
+      !client.emailEvents?.welcomeSentAt
+    ) {
+      const emailResult = await sendClientWelcomeEmail({
+        email: client.email,
+        clientId: client.id,
+        tipUrl,
+        payoutMode: client.payoutMode,
+      });
+
+      if (emailResult.success) {
+        await updateClient(client.id, {
+          emailEvents: {
+            welcomeSentAt: new Date().toISOString(),
+          },
+        });
+      }
+    }
+
     return NextResponse.json(
       {
         client,
@@ -78,4 +100,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
-

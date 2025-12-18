@@ -14,6 +14,14 @@ export type Client = {
   createdAt: string; // ISO
   payoutMode: "direct" | "platform";
 
+  /**
+   * Dashboard access token (v1 guard)
+   * - Generated once on client creation
+   * - Never rotated or overwritten
+   * - Passed as ?token=... to /client/[clientId]/dashboard
+   */
+  dashboardToken: string;
+
   stripe?: {
     accountId?: string;
   };
