@@ -11,10 +11,8 @@ import { OpenStripeDashboardButton } from "./open-stripe-dashboard-button";
 import { LogoutButton } from "./logout-button";
 import { DownloadPaymentsCsvButton } from "./download-payments-csv-button";
 
-type PageProps = {
-  params: {
-    clientId: string;
-  };
+type Params = {
+  clientId: string;
 };
 
 function formatEur(cents: number): string {
@@ -43,26 +41,34 @@ function isLocalhost(url: string): boolean {
   return url.includes("localhost") || url.includes("127.0.0.1");
 }
 
-export default async function DashboardPage({ params }: PageProps) {
-  const session = await getSession();
+export default async function DashboardPage({
+  params,
+}: {
+  params: Promise<Params>;
+}) {
+  const { clientId } = await params;
 
+  const session = await getSession();
   if (!session) {
     redirect("/login");
   }
 
-  if (session.clientId !== params.clientId) {
+  if (session.clientId !== clientId) {
     notFound();
   }
 
-  const client = await getClientById(params.clientId);
-  const summary = await getPaymentsSummaryByClientId(params.clientId);
+  const client = await getClientById(clientId);
+  if (!client) {
+    notFound();
+  }
 
-  const payments = await getPaymentsByClientId(params.clientId);
+  const summary = await getPaymentsSummaryByClientId(clientId);
+  const payments = await getPaymentsByClientId(clientId);
+
   const recentPayments = payments
     .slice()
-    .sort(
-      (a, b) =>
-        paymentDateIso(b).localeCompare(paymentDateIso(a))
+    .sort((a, b) =>
+      paymentDateIso(b).localeCompare(paymentDateIso(a))
     )
     .slice(0, 5);
 
@@ -98,16 +104,14 @@ export default async function DashboardPage({ params }: PageProps) {
       <section className="border rounded-lg p-4 space-y-2">
         <h2 className="font-semibold">Client info</h2>
         <p>
-          <strong>Client ID:</strong> {params.clientId}
+          <strong>Client ID:</strong> {clientId}
         </p>
-
-        {client?.displayName && (
+        {client.displayName && (
           <p>
             <strong>Name:</strong> {client.displayName}
           </p>
         )}
-
-        {client?.email && (
+        {client.email && (
           <p>
             <strong>Email:</strong> {client.email}
           </p>
@@ -116,67 +120,19 @@ export default async function DashboardPage({ params }: PageProps) {
 
       <section className="border rounded-lg p-4 space-y-3">
         <h2 className="font-semibold">Stripe</h2>
-        <StartOnboardingButton clientId={params.clientId} />
-        {client?.stripe?.accountId && (
-          <div className="pt-2">
-            <OpenStripeDashboardButton />
-          </div>
+        <StartOnboardingButton clientId={clientId} />
+        {client.stripe?.accountId && (
+          <OpenStripeDashboardButton />
         )}
       </section>
 
       <section className="border rounded-lg p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold">Payments</h2>
-          <DownloadPaymentsCsvButton clientId={params.clientId} />
-        </div>
-
+        <h2 className="font-semibold">Payments</h2>
         <p>
-          <strong>Total payments:</strong> {summary.totalCount}
+          <strong>Total received:</strong>{" "}
+          {formatEur(summary.totalNetCents)} €
         </p>
-
-        <p>
-          <strong>Total gross:</strong> €{formatEur(summary.totalGrossCents)}
-        </p>
-
-        <p>
-          <strong>Total net:</strong> €{formatEur(summary.totalNetCents)}
-        </p>
-
-        {summary.lastPaymentAt && (
-          <p className="text-sm text-gray-500">
-            Last payment:{" "}
-            {new Date(summary.lastPaymentAt).toLocaleString()}
-          </p>
-        )}
-      </section>
-
-      <section className="border rounded-lg p-4 space-y-3">
-        <h2 className="font-semibold">Recent payments</h2>
-
-        {recentPayments.length === 0 && (
-          <p className="text-sm text-gray-500">
-            No payments yet.
-          </p>
-        )}
-
-        {recentPayments.map((p) => (
-          <div
-            key={p.id}
-            className="flex items-center justify-between text-sm border-b last:border-b-0 py-1"
-          >
-            <div>
-              <div className="font-medium">
-                €{formatEur(p.amountCents)}
-              </div>
-              <div className="text-xs text-gray-500">
-                {new Date(paymentDateIso(p)).toLocaleString()}
-              </div>
-            </div>
-            <div className="text-xs text-gray-500">
-              {p.status}
-            </div>
-          </div>
-        ))}
+        <DownloadPaymentsCsvButton clientId={clientId} />
       </section>
     </main>
   );

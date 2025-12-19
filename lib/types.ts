@@ -5,22 +5,37 @@ export type Currency = "eur";
 
 export const PLATFORM_FEE_PERCENT = 10;
 
+// ---------- User ----------
+export type AuthProvider = "local" | "google";
+
+export type User = {
+  id: string;
+  email: string;
+
+  authProvider: AuthProvider;
+
+  // For local auth only
+  passwordHash?: string;
+
+  emailVerified: boolean;
+
+  createdAt: string;
+};
+
 // ---------- Client ----------
 export type Client = {
   id: string;
+
+  // Ownership
+  ownerUserId: string;
+
   displayName: string;
   email?: string;
-  isActive: boolean;
-  createdAt: string; // ISO
-  payoutMode: "direct" | "platform";
 
-  /**
-   * Dashboard access token (v1 guard)
-   * - Generated once on client creation
-   * - Never rotated or overwritten
-   * - Passed as ?token=... to /client/[clientId]/dashboard
-   */
-  dashboardToken: string;
+  isActive: boolean;
+  createdAt: string;
+
+  payoutMode: "direct" | "platform";
 
   stripe?: {
     accountId?: string;
@@ -33,19 +48,23 @@ export type Client = {
   };
 
   emailEvents?: {
-    welcomeSentAt?: string; // ISO
-    stripeConnectedSentAt?: string; // ISO
+    welcomeSentAt?: string;
+    stripeConnectedSentAt?: string;
   };
+
+  // Set-once, used for dashboard access links (v1)
+  dashboardToken: string;
 };
 
+// ---------- Creation DTOs ----------
 export type NewClient = {
   displayName: string;
   email?: string;
   payoutMode: "direct" | "platform";
-  branding?: Client["branding"];
+  ownerUserId: string;
 };
 
-// ---------- Payment ----------
+// ---------- Payments ----------
 export type PaymentStatus = "created" | "paid" | "failed" | "refunded";
 
 export type Payment = {
@@ -61,12 +80,12 @@ export type Payment = {
   status: PaymentStatus;
 
   stripe: {
+    paymentIntentId: string;
     checkoutSessionId: string;
-    paymentIntentId: string; // canonical Stripe identifier (required)
   };
 
-  createdAt: string; // ISO
-  paidAt?: string; // ISO
+  createdAt: string;
+  paidAt?: string;
 
   payer?: {
     email?: string;
@@ -74,24 +93,8 @@ export type Payment = {
   };
 };
 
-/**
- * NewPayment
- * Used internally before persistence (e.g., for initiating Checkout creation).
- * Must not contain fields not defined in architecture.
- */
 export type NewPayment = {
   clientId: string;
   amountCents: number;
-  currency?: Currency;
-};
-
-// ---------- Auth ----------
-export type UserAuth = {
-  id: string;
-  clientId: string;
-
-  email: string; // normalized (lowercase)
-  passwordHash: string;
-
-  createdAt: string; // ISO
+  currency: Currency;
 };

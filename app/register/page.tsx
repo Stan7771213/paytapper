@@ -1,15 +1,52 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function RegisterPage() {
-  const [error, setError] = useState<string | null>(
-    "Registration is temporarily disabled in v1."
-  );
+  const router = useRouter();
 
-  function onSubmit(e: React.FormEvent) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError("Registration is temporarily disabled in v1.");
+    setError(null);
+
+    if (!email || !password || !passwordConfirm) {
+      setError("All fields are required.");
+      return;
+    }
+
+    if (password !== passwordConfirm) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const r = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, passwordConfirm }),
+      });
+
+      const data = await r.json();
+
+      if (!r.ok) {
+        setError(data?.error || "Registration failed");
+        return;
+      }
+
+      router.push(`/client/${data.clientId}/dashboard`);
+    } catch {
+      setError("Network error");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -23,8 +60,10 @@ export default function RegisterPage() {
             <input
               className="w-full rounded-md bg-white text-black px-3 py-2 outline-none"
               type="email"
-              disabled
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
+              required
             />
           </div>
 
@@ -33,21 +72,35 @@ export default function RegisterPage() {
             <input
               className="w-full rounded-md bg-black text-white border border-gray-700 px-3 py-2 outline-none"
               type="password"
-              disabled
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               placeholder="********"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm text-gray-300">Confirm password</label>
+            <input
+              className="w-full rounded-md bg-black text-white border border-gray-700 px-3 py-2 outline-none"
+              type="password"
+              value={passwordConfirm}
+              onChange={(e) => setPasswordConfirm(e.target.value)}
+              placeholder="********"
+              required
             />
           </div>
 
           {error ? (
-            <p className="text-sm text-yellow-400">{error}</p>
+            <p className="text-sm text-red-400">{error}</p>
           ) : null}
 
           <button
-            className="w-full rounded-md border border-gray-700 px-3 py-2 text-sm font-medium opacity-60 cursor-not-allowed"
+            className="w-full rounded-md border border-gray-700 px-3 py-2 text-sm font-medium hover:bg-gray-900 disabled:opacity-50"
             type="submit"
-            disabled
+            disabled={loading}
           >
-            Registration disabled
+            {loading ? "Creating account..." : "Create account"}
           </button>
 
           <p className="text-sm text-gray-500">

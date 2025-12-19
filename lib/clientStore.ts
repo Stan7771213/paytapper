@@ -13,11 +13,20 @@ export async function getClientById(clientId: string): Promise<Client | null> {
   return clients.find((c) => c.id === clientId) ?? null;
 }
 
-export async function createClient(input: NewClient): Promise<Client> {
+export async function getClientByOwnerUserId(userId: string): Promise<Client | null> {
+  const clients = await getAllClients();
+  return clients.find((c) => c.ownerUserId === userId) ?? null;
+}
+
+export async function createClient(
+  input: NewClient & { ownerUserId: string }
+): Promise<Client> {
   const clients = await getAllClients();
 
   const client: Client = {
     id: randomUUID(),
+    ownerUserId: input.ownerUserId,
+
     displayName: input.displayName,
     email: input.email,
     payoutMode: input.payoutMode,
@@ -81,6 +90,7 @@ export async function updateClient(
     ...("branding" in patch ? { branding: patch.branding } : {}),
     createdAt: current.createdAt,
     dashboardToken: current.dashboardToken,
+    ownerUserId: current.ownerUserId,
   };
 
   // Stripe accountId: set once, never overwrite

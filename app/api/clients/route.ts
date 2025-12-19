@@ -1,102 +1,52 @@
-// app/api/clients/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
-import { createClient, updateClient } from "@/lib/clientStore";
-import type { NewClient } from "@/lib/types";
-import { sendClientWelcomeEmail } from "@/lib/email";
 
-function getBaseUrl(): string {
-  const explicit = process.env.NEXT_PUBLIC_BASE_URL;
-  if (explicit && explicit.trim()) return explicit.trim();
-
-  const vercelUrl = process.env.VERCEL_URL;
-  if (vercelUrl && vercelUrl.trim()) {
-    const v = vercelUrl.trim();
-    return v.startsWith("http") ? v : `https://${v}`;
-  }
-
-  return "http://localhost:3000";
-}
-
-type CreateClientBody = {
-  displayName?: unknown;
-  email?: unknown;
-  payoutMode?: unknown;
-};
-
-function isPayoutMode(value: unknown): value is NewClient["payoutMode"] {
-  return value === "direct" || value === "platform";
-}
+import { getSession } from "@/lib/session";
+import { createClient } from "@/lib/clientStore";
 
 export async function POST(req: NextRequest) {
   try {
-    const body = (await req.json()) as CreateClientBody;
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-    const displayName =
-      typeof body.displayName === "string" ? body.displayName.trim() : "";
+    const body = await req.json();
+
+    const displayName = String(body.displayName ?? "").trim();
+    const email =
+      typeof body.email === "string" && body.email.trim()
+        ? body.email.trim().toLowerCase()
+        : undefined;
+
+    const payoutMode =
+      body.payoutMode === "platform" ? "platform" : "direct";
 
     if (!displayName) {
       return NextResponse.json(
-        { error: "displayName is required" },
+        { error: "Missing displayName" },
         { status: 400 }
       );
     }
-
-    if (!isPayoutMode(body.payoutMode)) {
-      return NextResponse.json(
-        { error: 'payoutMode must be "direct" or "platform"' },
-        { status: 400 }
-      );
-    }
-
-    const email =
-      typeof body.email === "string" && body.email.trim()
-        ? body.email.trim()
-        : undefined;
 
     const client = await createClient({
       displayName,
       email,
-      payoutMode: body.payoutMode,
+      payoutMode,
+      ownerUserId: session.userAuthId,
     });
-
-    const baseUrl = getBaseUrl();
-    const tipUrl = `${baseUrl}/tip/${encodeURIComponent(client.id)}`;
-    const dashboardUrl = `${baseUrl}/client/${encodeURIComponent(
-      client.id
-    )}/dashboard`;
-
-    // --- Welcome email (idempotent, set-once) ---
-    if (
-      client.email &&
-      !client.emailEvents?.welcomeSentAt
-    ) {
-      const emailResult = await sendClientWelcomeEmail({
-        email: client.email,
-        clientId: client.id,
-        tipUrl,
-        payoutMode: client.payoutMode,
-      });
-
-      if (emailResult.success) {
-        await updateClient(client.id, {
-          emailEvents: {
-            welcomeSentAt: new Date().toISOString(),
-          },
-        });
-      }
-    }
 
     return NextResponse.json(
       {
-        client,
-        tipUrl,
-        dashboardUrl,
+        clientId: client.id,
       },
       { status: 201 }
     );
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Unknown error";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
+}
+
+export async function GET() {
+  return NextResponse.json({ error: "Method Not Allowed" }, { status: 405 });
 }
