@@ -7,7 +7,7 @@ export default async function PostAuthPage() {
   const session = await getSession();
 
   if (!session) {
-    redirect("/login");
+    redirect("/");
   }
 
   redirect(`/client/${session.clientId}/dashboard`);
