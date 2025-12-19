@@ -1,11 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 
 export default function RegisterPage() {
-  const router = useRouter();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
@@ -41,7 +38,8 @@ export default function RegisterPage() {
         return;
       }
 
-      router.push(`/client/${data.clientId}/dashboard`);
+      // IMPORTANT: full page reload to ensure session cookie is applied
+      window.location.href = `/client/${data.clientId}/dashboard`;
     } catch {
       setError("Network error");
     } finally {
@@ -91,9 +89,7 @@ export default function RegisterPage() {
             />
           </div>
 
-          {error ? (
-            <p className="text-sm text-red-400">{error}</p>
-          ) : null}
+          {error ? <p className="text-sm text-red-400">{error}</p> : null}
 
           <button
             className="w-full rounded-md border border-gray-700 px-3 py-2 text-sm font-medium hover:bg-gray-900 disabled:opacity-50"
@@ -102,13 +98,6 @@ export default function RegisterPage() {
           >
             {loading ? "Creating account..." : "Create account"}
           </button>
-
-          <p className="text-sm text-gray-500">
-            Already have an account?{" "}
-            <a className="underline hover:text-white" href="/login">
-              Log in
-            </a>
-          </p>
         </form>
       </div>
     </main>
