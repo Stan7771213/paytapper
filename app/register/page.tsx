@@ -38,8 +38,8 @@ export default function RegisterPage() {
         return;
       }
 
-      // IMPORTANT: full page reload to ensure session cookie is applied
-      window.location.href = `/client/${data.clientId}/dashboard`;
+      // CRITICAL: go through post-auth to avoid cookie race
+      window.location.href = "/post-auth";
     } catch {
       setError("Network error");
     } finally {
