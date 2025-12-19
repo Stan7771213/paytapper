@@ -4,6 +4,7 @@ import { getClientById } from "@/lib/clientStore";
 
 type OnboardRequest = {
   clientId: string;
+  accountId?: string;
 };
 
 type OnboardResponse = {
@@ -41,9 +42,11 @@ export async function POST(req: NextRequest) {
       return json({ error: "Client not found" }, 404);
     }
 
-    const accountId = client.stripe?.accountId?.trim();
+    const accountId =
+      client.stripe?.accountId?.trim() ||
+      body.accountId?.trim();
+
     if (!accountId) {
-      // Architecture: /connect/create must run first (idempotent ensure).
       return json({ error: "Stripe account not created yet" }, 409);
     }
 
@@ -66,7 +69,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Keep GET explicit (no accidental onboarding by browser navigation)
 export async function GET() {
   return json({ error: "Method Not Allowed" }, 405);
 }
