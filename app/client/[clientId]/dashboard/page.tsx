@@ -45,10 +45,10 @@ export default async function DashboardPage({
   const { clientId } = await params;
 
   const session = await getSession();
-  if (!session) redirect("/login");
 
-  // IMPORTANT: no notFound() here to avoid SSR race after auth
-  if (session.clientId !== clientId) {
+  // v1 rule: dashboard never redirects to /login
+  // all auth resolution must go through /post-auth
+  if (!session || session.clientId !== clientId) {
     redirect("/post-auth");
   }
 
