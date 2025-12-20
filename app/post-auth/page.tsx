@@ -6,9 +6,9 @@ export const dynamic = "force-dynamic";
 export default async function PostAuthPage() {
   const session = await getSession();
 
-  // v1 rule: no silent waiting, no null renders
   if (!session) {
-    redirect("/register");
+    // ❗️ВАЖНО: НЕ null, а ЧЁТКИЙ ВЫХОД
+    redirect("/");
   }
 
   redirect(`/client/${session.clientId}/dashboard`);
