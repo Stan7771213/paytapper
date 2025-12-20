@@ -4,7 +4,7 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 
 interface StartOnboardingButtonProps {
-  clientId?: string; // Optional: we primarily read from the URL
+  clientId?: string;
 }
 
 type ApiErrorResponse = { error?: unknown };
@@ -20,12 +20,9 @@ export function StartOnboardingButton({ clientId }: StartOnboardingButtonProps) 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Read clientId from the route: /client/[clientId]/dashboard
   const pathname = usePathname();
   const segments = pathname.split("/").filter(Boolean);
-  // segments = ["client", "<clientId>", "dashboard"]
   const clientIdFromUrl = segments[1];
-
   const effectiveClientId = clientIdFromUrl || clientId || "";
 
   async function handleClick() {
@@ -37,7 +34,7 @@ export function StartOnboardingButton({ clientId }: StartOnboardingButtonProps) 
         throw new Error("Client ID is missing on this page.");
       }
 
-      // 1) Ensure a connected account exists (idempotent).
+      // 1) Create / ensure Stripe account
       const createRes = await fetch("/api/connect/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -45,39 +42,45 @@ export function StartOnboardingButton({ clientId }: StartOnboardingButtonProps) 
       });
 
       if (!createRes.ok) {
-        const data: unknown = await createRes.json().catch(() => ({}));
-        const message = getErrorMessage(data);
-        throw new Error(message ?? "Could not create a Stripe connected account.");
+        const data = await createRes.json().catch(() => ({}));
+        throw new Error(
+          getErrorMessage(data) ?? "Could not create Stripe account"
+        );
       }
 
-      // 2) Request an onboarding link (requires accountId).
+      const createData = (await createRes.json()) as { accountId?: string };
+      const accountId = createData.accountId;
+
+      if (!accountId) {
+        throw new Error("Stripe accountId missing after creation");
+      }
+
+      // 2) Request onboarding link (pass accountId explicitly)
       const onboardRes = await fetch("/api/connect/onboard", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clientId: effectiveClientId }),
+        body: JSON.stringify({
+          clientId: effectiveClientId,
+          accountId,
+        }),
       });
 
       if (!onboardRes.ok) {
-        const data: unknown = await onboardRes.json().catch(() => ({}));
-        const message = getErrorMessage(data);
-        throw new Error(message ?? "Could not create a Stripe onboarding link.");
+        const data = await onboardRes.json().catch(() => ({}));
+        throw new Error(
+          getErrorMessage(data) ?? "Could not create Stripe onboarding link"
+        );
       }
 
-      const data: unknown = await onboardRes.json();
-      const url =
-        typeof data === "object" && data !== null && "url" in data
-          ? (data as { url?: unknown }).url
-          : undefined;
-
-      if (typeof url !== "string" || !url.trim()) {
-        throw new Error("Stripe onboarding URL is missing.");
+      const onboardData = (await onboardRes.json()) as { url?: string };
+      if (!onboardData.url) {
+        throw new Error("Stripe onboarding URL missing");
       }
 
-      window.location.href = url;
-    } catch (err: unknown) {
+      window.location.href = onboardData.url;
+    } catch (err) {
       console.error(err);
-      const message = err instanceof Error ? err.message : "Something went wrong.";
-      setError(message);
+      setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setLoading(false);
     }
