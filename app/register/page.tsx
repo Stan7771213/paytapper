@@ -38,8 +38,14 @@ export default function RegisterPage() {
         return;
       }
 
-      // CRITICAL: go through post-auth to avoid cookie race
-      window.location.href = "/post-auth";
+      const clientId = data?.clientId;
+      if (typeof clientId !== "string") {
+        setError("Registration succeeded but clientId is missing.");
+        return;
+      }
+
+      // ✅ deterministic redirect (NO cookie race)
+      window.location.href = `/client/${clientId}/dashboard`;
     } catch {
       setError("Network error");
     } finally {
@@ -60,7 +66,6 @@ export default function RegisterPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
               required
             />
           </div>
@@ -72,7 +77,6 @@ export default function RegisterPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="********"
               required
             />
           </div>
@@ -84,7 +88,6 @@ export default function RegisterPage() {
               type="password"
               value={passwordConfirm}
               onChange={(e) => setPasswordConfirm(e.target.value)}
-              placeholder="********"
               required
             />
           </div>
