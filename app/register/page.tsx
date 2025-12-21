@@ -3,106 +3,104 @@
 import { useState } from "react";
 
 export default function RegisterPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setIsSubmitting(true);
     setError(null);
 
-    if (!email || !password || !passwordConfirm) {
-      setError("All fields are required.");
+    const formData = new FormData(e.currentTarget);
+
+    const displayName = String(formData.get("displayName") || "").trim();
+    const email = String(formData.get("email") || "").trim();
+    const password = String(formData.get("password") || "");
+    const confirmPassword = String(formData.get("confirmPassword") || "");
+
+    if (!email || !password || !confirmPassword) {
+      setError("All fields are required");
+      setIsSubmitting(false);
       return;
     }
 
-    if (password !== passwordConfirm) {
-      setError("Passwords do not match.");
+    if (password !== confirmPassword) {
+      setError("Passwords do not match");
+      setIsSubmitting(false);
       return;
     }
 
-    setLoading(true);
     try {
       const r = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, passwordConfirm }),
+        body: JSON.stringify({
+          displayName,
+          email,
+          password,
+          passwordConfirm: confirmPassword, // 🔴 ВАЖНО
+        }),
       });
 
-      const data = await r.json();
-
       if (!r.ok) {
-        setError(data?.error || "Registration failed");
-        return;
+        const data = await r.json().catch(() => ({}));
+        throw new Error(data?.error || "Registration failed");
       }
 
-      const clientId = data?.clientId;
-      if (typeof clientId !== "string") {
-        setError("Registration succeeded but clientId is missing.");
-        return;
-      }
-
-      // ✅ deterministic redirect (NO cookie race)
-      window.location.href = `/client/${clientId}/dashboard`;
-    } catch {
-      setError("Network error");
+      window.location.href = "/post-auth";
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      setError(msg);
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   }
 
   return (
-    <main className="min-h-screen bg-black text-white flex items-start justify-center p-6">
-      <div className="w-full max-w-md">
-        <h1 className="text-3xl font-semibold mb-8">Create your account</h1>
+    <main className="max-w-md mx-auto p-6 space-y-4">
+      <h1 className="text-2xl font-semibold">Create account</h1>
 
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm text-gray-300">Email</label>
-            <input
-              className="w-full rounded-md bg-white text-black px-3 py-2 outline-none"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
+      <form onSubmit={onSubmit} className="space-y-3">
+        <input
+          name="displayName"
+          placeholder="Name (optional)"
+          className="w-full rounded-md border border-gray-300 px-3 py-2"
+        />
 
-          <div className="space-y-2">
-            <label className="text-sm text-gray-300">Password</label>
-            <input
-              className="w-full rounded-md bg-black text-white border border-gray-700 px-3 py-2 outline-none"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-          </div>
+        <input
+          name="email"
+          type="email"
+          placeholder="Email"
+          required
+          className="w-full rounded-md border border-gray-300 px-3 py-2"
+        />
 
-          <div className="space-y-2">
-            <label className="text-sm text-gray-300">Confirm password</label>
-            <input
-              className="w-full rounded-md bg-black text-white border border-gray-700 px-3 py-2 outline-none"
-              type="password"
-              value={passwordConfirm}
-              onChange={(e) => setPasswordConfirm(e.target.value)}
-              required
-            />
-          </div>
+        <input
+          name="password"
+          type="password"
+          placeholder="Password"
+          required
+          className="w-full rounded-md border border-gray-300 px-3 py-2"
+        />
 
-          {error ? <p className="text-sm text-red-400">{error}</p> : null}
+        <input
+          name="confirmPassword"
+          type="password"
+          placeholder="Repeat password"
+          required
+          className="w-full rounded-md border border-gray-300 px-3 py-2"
+        />
 
-          <button
-            className="w-full rounded-md border border-gray-700 px-3 py-2 text-sm font-medium hover:bg-gray-900 disabled:opacity-50"
-            type="submit"
-            disabled={loading}
-          >
-            {loading ? "Creating account..." : "Create account"}
-          </button>
-        </form>
-      </div>
+        {error && <div className="text-sm text-red-600">{error}</div>}
+
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full rounded-md border border-gray-700 px-3 py-2 text-sm font-medium hover:bg-gray-900 hover:text-white disabled:opacity-50"
+        >
+          {isSubmitting ? "Creating..." : "Create account"}
+        </button>
+      </form>
     </main>
   );
 }
