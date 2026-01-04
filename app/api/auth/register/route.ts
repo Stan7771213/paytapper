@@ -5,7 +5,14 @@ import bcrypt from "bcryptjs";
 import { createUser, getUserByEmail } from "@/lib/userStore";
 import { createClient } from "@/lib/clientStore";
 import { setSession } from "@/lib/session";
+import { sendClientWelcomeEmail } from "@/lib/email";
 import { User } from "@/lib/types";
+
+function getBaseUrl(): string {
+  const explicit = process.env.NEXT_PUBLIC_BASE_URL;
+  if (explicit && explicit.trim()) return explicit.trim().replace(/\/+$/, "");
+  return "https://paytapper.net";
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -57,7 +64,29 @@ export async function POST(req: NextRequest) {
       clientId: client.id,
     });
 
-    return NextResponse.json({ clientId: client.id }, { status: 201 });
+    const baseUrl = getBaseUrl();
+    const dashboardUrl = `${baseUrl}/client/${client.id}/dashboard`;
+    const tipUrl = `${baseUrl}/pay/${client.id}`;
+
+    // Welcome email (non-blocking)
+    try {
+      await sendClientWelcomeEmail({
+        email,
+        clientId: client.id,
+        tipUrl,
+        payoutMode: client.payoutMode,
+      });
+    } catch (err) {
+      console.warn("Welcome email failed:", err);
+    }
+
+    return NextResponse.json(
+      {
+        clientId: client.id,
+        redirect: dashboardUrl,
+      },
+      { status: 201 }
+    );
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
     return NextResponse.json({ error: msg }, { status: 500 });
