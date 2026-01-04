@@ -37,6 +37,16 @@ function isLocalhost(url: string): boolean {
   return url.includes("localhost") || url.includes("127.0.0.1");
 }
 
+async function getStripeState(clientId: string): Promise<"active" | "other"> {
+  const res = await fetch(
+    `${getBaseUrl()}/api/connect/status?clientId=${encodeURIComponent(clientId)}`,
+    { cache: "no-store" }
+  );
+  if (!res.ok) return "other";
+  const data = await res.json();
+  return data.state === "active" ? "active" : "other";
+}
+
 export default async function DashboardPage({
   params,
 }: {
@@ -45,7 +55,6 @@ export default async function DashboardPage({
   const { clientId } = await params;
 
   const session = await getSession();
-
   if (!session || session.clientId !== clientId) {
     redirect("/post-auth");
   }
@@ -56,15 +65,17 @@ export default async function DashboardPage({
   const summary = await getPaymentsSummaryByClientId(clientId);
   const payments = await getPaymentsByClientId(clientId);
 
-  const recentPayments = payments
-    .slice()
-    .sort((a, b) => paymentDateIso(b).localeCompare(paymentDateIso(a)))
-    .slice(0, 5);
-
   const isLive = stripeMode === "live";
   const baseUrl = getBaseUrl();
   const tipUrl = `${baseUrl}/tip/${clientId}`;
   const showTestWarning = stripeMode === "test" && !isLocalhost(baseUrl);
+
+  const stripeState =
+    client.payoutMode === "direct"
+      ? await getStripeState(clientId)
+      : "active";
+
+  const canShowTip = client.payoutMode !== "direct" || stripeState === "active";
 
   return (
     <main className="max-w-xl mx-auto p-6 space-y-6">
@@ -84,8 +95,7 @@ export default async function DashboardPage({
 
       {showTestWarning && (
         <div className="rounded-lg border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-800">
-          <strong>Test mode:</strong> You are running Paytapper in Stripe TEST mode
-          on a non-localhost URL. Do not share this link with real users.
+          <strong>Test mode:</strong> Do not share this link with real users.
         </div>
       )}
 
@@ -98,18 +108,31 @@ export default async function DashboardPage({
 
       <section className="border rounded-lg p-4 space-y-3">
         <h2 className="font-semibold">Tip link & QR</h2>
-        <p className="text-sm text-gray-600">
-          Share this link or QR code with your audience to receive tips.
-        </p>
-        <p className="text-sm break-all">
-          <strong>Tip link:</strong><br />
-          <a href={tipUrl} target="_blank" rel="noopener noreferrer" className="underline text-blue-500 hover:text-blue-400">{tipUrl}</a>
-        </p>
-        <img
-          src={`/api/qr?value=${encodeURIComponent(tipUrl)}`}
-          alt="Tip QR"
-          className="w-40 h-40 border rounded"
-        />
+
+        {canShowTip ? (
+          <>
+            <p className="text-sm break-all">
+              <strong>Tip link:</strong><br />
+              <a
+                href={tipUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline text-blue-500 hover:text-blue-400"
+              >
+                {tipUrl}
+              </a>
+            </p>
+            <img
+              src={`/api/qr?value=${encodeURIComponent(tipUrl)}`}
+              alt="Tip QR"
+              className="w-40 h-40 border rounded"
+            />
+          </>
+        ) : (
+          <p className="text-sm text-gray-500">
+            Connect Stripe to start accepting payments.
+          </p>
+        )}
       </section>
 
       <section className="border rounded-lg p-4 space-y-3">
