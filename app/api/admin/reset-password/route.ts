@@ -28,8 +28,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  await updateUser({
-    ...user,
+  await updateUser(user.id, {
     passwordHash,
   });
 
