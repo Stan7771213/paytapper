@@ -30,7 +30,7 @@ function getBaseUrl(): string {
   if (vercelUrl && vercelUrl.trim()) {
     return vercelUrl.startsWith("http") ? vercelUrl : `https://${vercelUrl}`;
   }
-  return "http://localhost";
+  return "http://localhost:3000";
 }
 
 function isLocalhost(url: string): boolean {
@@ -46,8 +46,6 @@ export default async function DashboardPage({
 
   const session = await getSession();
 
-  // v1 rule: dashboard never redirects to /login
-  // all auth resolution must go through /post-auth
   if (!session || session.clientId !== clientId) {
     redirect("/post-auth");
   }
@@ -65,6 +63,7 @@ export default async function DashboardPage({
 
   const isLive = stripeMode === "live";
   const baseUrl = getBaseUrl();
+  const tipUrl = `${baseUrl}/tip/${clientId}`;
   const showTestWarning = stripeMode === "test" && !isLocalhost(baseUrl);
 
   return (
@@ -95,6 +94,22 @@ export default async function DashboardPage({
         <p><strong>Client ID:</strong> {clientId}</p>
         {client.displayName && <p><strong>Name:</strong> {client.displayName}</p>}
         {client.email && <p><strong>Email:</strong> {client.email}</p>}
+      </section>
+
+      <section className="border rounded-lg p-4 space-y-3">
+        <h2 className="font-semibold">Tip link & QR</h2>
+        <p className="text-sm text-gray-600">
+          Share this link or QR code with your audience to receive tips.
+        </p>
+        <p className="text-sm break-all">
+          <strong>Tip link:</strong><br />
+          <a href={tipUrl} target="_blank" rel="noopener noreferrer" className="underline text-blue-500 hover:text-blue-400">{tipUrl}</a>
+        </p>
+        <img
+          src={`/api/qr?value=${encodeURIComponent(tipUrl)}`}
+          alt="Tip QR"
+          className="w-40 h-40 border rounded"
+        />
       </section>
 
       <section className="border rounded-lg p-4 space-y-3">
