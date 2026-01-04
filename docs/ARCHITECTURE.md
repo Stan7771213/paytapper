@@ -473,3 +473,38 @@ Rules:
 - Refund routing edge cases
 - KYC/verification guidance beyond Stripe-hosted UI
 
+
+---
+
+## Authentication & Session — Known Edge Cases (v1)
+
+### Cookie propagation after login (Post-auth redirect)
+
+In v1, authentication is implemented via a secure HTTP-only cookie
+(`paytapper_session`) set by `/api/auth/login`.
+
+Observed behavior in production (Vercel + Next.js App Router):
+
+- The login endpoint **successfully sets the session cookie**
+- Immediate navigation to `/post-auth` may temporarily **not see the cookie**
+  during SSR due to cookie propagation timing
+- In this case, `/post-auth` renders a fallback state ("Finalizing login…")
+
+This is a **known and acceptable behavior** of the current architecture and
+**does not indicate a broken login or Stripe connection**.
+
+### Supported fallback
+
+- Direct navigation to  
+  `/client/{clientId}/dashboard`  
+  is **fully supported and correct** once the cookie is set
+- The dashboard performs its own session check and renders correctly
+
+### Architectural note
+
+- This is **not a Stripe issue**
+- This is **not a data consistency issue**
+- This is **not fixed intentionally in v1** to avoid premature complexity
+
+The behavior is documented and accepted until a future auth refactor.
+
