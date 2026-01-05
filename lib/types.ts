@@ -19,7 +19,12 @@ export type User = {
 
   emailVerified: boolean;
 
+  // Password reset (local auth)
+  passwordResetToken?: string;
+  passwordResetExpiresAt?: string;
+
   createdAt: string;
+  updatedAt?: string;
 };
 
 // ---------- Client ----------

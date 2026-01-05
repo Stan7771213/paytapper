@@ -8,7 +8,7 @@ async function readAll(): Promise<User[]> {
 }
 
 async function writeAll(users: User[]): Promise<void> {
-  await writeJsonArray(USERS_FILE, users);
+  await writeJsonArray<User>(USERS_FILE, users);
 }
 
 export async function getUserById(userId: string): Promise<User | null> {
@@ -36,7 +36,10 @@ export async function createUser(user: User): Promise<void> {
   await writeAll([...users, user]);
 }
 
-export async function updateUser(userId: string, updates: Partial<User>): Promise<User> {
+export async function updateUser(
+  userId: string,
+  updates: Partial<User>
+): Promise<User> {
   const users = await readAll();
   const index = users.findIndex((u) => u.id === userId);
 
@@ -54,4 +57,30 @@ export async function updateUser(userId: string, updates: Partial<User>): Promis
 
   await writeAll(next);
   return updated;
+}
+
+export async function getUserByResetToken(
+  token: string
+): Promise<User | null> {
+  const users = await readAll();
+  return users.find((u) => u.passwordResetToken === token) ?? null;
+}
+
+export async function updateUserPassword(
+  userId: string,
+  passwordHash: string
+): Promise<void> {
+  const users = await readAll();
+  const idx = users.findIndex((u) => u.id === userId);
+  if (idx === -1) throw new Error("User not found");
+
+  users[idx] = {
+    ...users[idx],
+    passwordHash,
+    passwordResetToken: undefined,
+    passwordResetExpiresAt: undefined,
+    updatedAt: new Date().toISOString(),
+  };
+
+  await writeAll(users);
 }
