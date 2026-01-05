@@ -54,6 +54,14 @@ export type Client = {
 
   // Set-once, used for dashboard access links (v1)
   dashboardToken: string;
+
+  // === AUTH v1.1 ===
+  passwordHash?: string;
+
+  passwordReset?: {
+    tokenHash: string;
+    expiresAt: string;
+  };
 };
 
 // ---------- Creation DTOs ----------

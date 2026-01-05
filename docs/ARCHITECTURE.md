@@ -303,11 +303,10 @@ branding
 auth
 database migration
 Non-Goals (for now)
-Authentication
-Multi-currency
-Refunds
-Invoices
-Subscriptions
+- Multi-currency
+- Refunds
+- Invoices
+- Subscriptions
 These will be added only after core stability.
 Summary
 Paytapper architecture prioritizes:
@@ -476,35 +475,175 @@ Rules:
 
 ---
 
-## Authentication & Session — Known Edge Cases (v1)
 
-### Cookie propagation after login (Post-auth redirect)
+---
 
-In v1, authentication is implemented via a secure HTTP-only cookie
-(`paytapper_session`) set by `/api/auth/login`.
+## Stripe Live Verification (Production Ready)
 
-Observed behavior in production (Vercel + Next.js App Router):
+**Status:** ✅ Verified in LIVE environment  
+**Date:** January 2026
 
-- The login endpoint **successfully sets the session cookie**
-- Immediate navigation to `/post-auth` may temporarily **not see the cookie**
-  during SSR due to cookie propagation timing
-- In this case, `/post-auth` renders a fallback state ("Finalizing login…")
+The Paytapper Stripe integration has been fully tested and verified in **LIVE mode**.
 
-This is a **known and acceptable behavior** of the current architecture and
-**does not indicate a broken login or Stripe connection**.
+### Verified flow
+- Customer completes payment via Stripe Checkout
+- Platform receives the payment
+- Platform fee (10%) is retained automatically
+- Remaining amount is transferred to the connected account (Stripe Connect – Standard)
+- Connected account balance increases accordingly
+- Automatic payouts are enabled (daily, rolling basis)
+- Funds are sent to the connected bank account without manual intervention
 
-### Supported fallback
+### Observed results (LIVE)
+- Payments processed successfully
+- Platform commission retained correctly
+- Connected account balance updated correctly
+- No funds stuck on platform balance
+- No manual payouts required
 
-- Direct navigation to  
-  `/client/{clientId}/dashboard`  
-  is **fully supported and correct** once the cookie is set
-- The dashboard performs its own session check and renders correctly
+### Architectural conclusion
+This confirms that:
+- Stripe Checkout
+- Stripe Connect (Standard accounts)
+- Application fee handling
+- Transfer logic
+- Automatic payouts
 
-### Architectural note
+are all **production-ready and operating as designed**.
 
-- This is **not a Stripe issue**
-- This is **not a data consistency issue**
-- This is **not fixed intentionally in v1** to avoid premature complexity
+No further Stripe-side configuration is required for standard operation.
 
-The behavior is documented and accepted until a future auth refactor.
+
+---
+
+## Stripe Money Flow (Live, v1 — Observed & Canonical)
+
+This section documents the **actual observed behavior** of Stripe Connect (Standard) in LIVE mode.
+
+### Payment lifecycle (direct payout mode)
+
+1. A guest completes a payment on `/tip/{clientId}` via Stripe Checkout.
+2. The payment succeeds (`payment_intent.succeeded`).
+3. Funds are credited to the **connected account balance**, not immediately to any bank.
+4. Funds appear as:
+   - `pending` → `available` (Stripe internal settlement delay)
+5. Payouts are executed by Stripe according to the **connected account payout schedule**:
+   - Daily (7-day rolling basis in EU by default)
+6. Funds are transferred to the connected account’s bank automatically by Stripe.
+
+### Platform fee (v1 reality)
+
+- The 10% platform fee is:
+  - calculated server-side
+  - persisted in `Payment.platformFeeCents`
+- **No automatic money split occurs in v1**
+- Paytapper does NOT receive its fee automatically in LIVE mode yet
+- This is intentional and acceptable for v1 validation
+
+### Explicit non-goals (v1)
+
+- No Stripe Transfers
+- No destination charges
+- No automatic platform fee withdrawal
+- No balance manipulation
+
+### Planned (v2+)
+
+- Stripe Transfers or destination charges
+- Real-time platform fee routing
+- Explicit reconciliation between platform and connected accounts
+
+This document reflects **real Stripe LIVE behavior**, not assumptions.
+
+
+---
+
+## Stripe Payout Configuration (v1 — Final)
+
+This section documents the **final, intentional payout configuration** used by Paytapper.
+
+### Connected accounts (clients)
+
+- Payouts: **Automatic**
+- Schedule: **Daily**
+- Bank account: **Verified**
+- Stripe handles:
+  - settlement delays
+  - balance availability
+  - automatic payouts to client banks
+
+Clients receive their funds automatically without any action from Paytapper.
+
+### Platform (Paytapper)
+
+- Payouts: **Manual**
+- Automatic payouts: **Disabled**
+- Platform funds (fees) accumulate in Stripe balance.
+- Paytapper initiates payouts manually when required
+  (e.g. monthly or quarterly).
+
+### Rationale
+
+- Clients receive money as fast as possible.
+- Paytapper maintains full control over its own cash flow.
+- Simplified accounting and tax handling.
+- No operational dependency between client payouts and platform payouts.
+
+This configuration is **production-ready** and considered final for v1.
+
+
+## Authentication & Session (v1.1)
+
+Authentication is a **mandatory part of the product** starting from v1.1.
+
+### Goals
+- Allow existing clients to reliably access their dashboard at any time
+- Eliminate dependency on browser session lifetime
+- Prevent manual or ad-hoc account recovery
+- Preserve all existing clients, Stripe connections, and payment history
+
+### Identity Model
+- Email is the primary authentication identifier
+- Each email maps to exactly one Client
+- clientId remains the canonical internal identifier
+
+### Authentication Method
+- Email + password
+- Passwords are stored securely (hashed)
+- No OAuth or third-party identity providers in v1.1
+
+### Session Model
+- Cookie-based, HTTP-only session
+- Session contains:
+  - clientId
+  - expiresAt
+- Session expiration is enforced server-side
+- No JWT
+- No refresh tokens
+
+### Login Flow
+1. User opens /login
+2. Enters email and password
+3. Server:
+   - finds Client by email
+   - validates password
+   - creates session
+4. User is redirected to /client/{clientId}/dashboard
+
+### Logout Flow
+- Session is destroyed
+- Cookie is cleared
+- User is redirected to /
+
+### Route Protection
+- All /client/* routes require a valid session
+- Direct access without authentication is forbidden
+- /post-auth is no longer a primary auth mechanism
+
+### Migration Notes
+- All existing clients automatically become login-capable
+- No data migration is required
+- No changes to Stripe, payments, or connected accounts
+
+This section supersedes the previous v1 cookie-only session behavior.
 

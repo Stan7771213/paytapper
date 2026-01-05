@@ -8,6 +8,11 @@ export async function getAllClients(): Promise<Client[]> {
   return readJsonArray<Client>(CLIENTS_PATH);
 }
 
+export async function getClientByEmail(email: string): Promise<Client | null> {
+  const clients = await getAllClients();
+  return clients.find((c) => c.email?.toLowerCase() === email.toLowerCase()) ?? null;
+}
+
 export async function getClientById(clientId: string): Promise<Client | null> {
   const clients = await getAllClients();
   return clients.find((c) => c.id === clientId) ?? null;
@@ -65,6 +70,12 @@ export async function updateClient(
       welcomeSentAt?: string;
       stripeConnectedSentAt?: string;
     };
+
+    passwordHash?: string;
+    passwordReset?: {
+      tokenHash: string;
+      expiresAt: string;
+    };
   }
 ): Promise<Client> {
   const clients = await getAllClients();
@@ -91,6 +102,9 @@ export async function updateClient(
     createdAt: current.createdAt,
     dashboardToken: current.dashboardToken,
     ownerUserId: current.ownerUserId,
+
+    ...(patch.passwordHash !== undefined ? { passwordHash: patch.passwordHash } : {}),
+    ...(patch.passwordReset !== undefined ? { passwordReset: patch.passwordReset } : {}),
   };
 
   // Stripe accountId: set once, never overwrite

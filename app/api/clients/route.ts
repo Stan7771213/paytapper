@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getSession } from "@/lib/session";
+import { getSession } from "@/lib/auth/sessions";
 import { createClient } from "@/lib/clientStore";
 
 export async function POST(req: NextRequest) {
@@ -28,11 +28,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // v1.1: single-user model → ownerUserId = clientId from session
     const client = await createClient({
       displayName,
       email,
       payoutMode,
-      ownerUserId: session.userAuthId,
+      ownerUserId: session.clientId,
     });
 
     return NextResponse.json(

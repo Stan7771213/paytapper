@@ -1,0 +1,18 @@
+[
+  {
+    "id": "d77cebc9-2c8f-449e-a4db-4da61370d553",
+    "email": "stan.master4@gmail.com",
+    "passwordHash": "$2b$12$ZnacvjGQZe7b2MSZv4NQSOrBHuPTInAv0wWCTNn7ju.gzlDzSI5ja",
+    "authProvider": "local",
+    "emailVerified": false,
+    "createdAt": "2026-01-04T10:08:57.707Z"
+  },
+  {
+    "id": "366c601d-3a2e-498c-905c-a6e9e029f925",
+    "email": "tallinnboltpark@gmail.com",
+    "passwordHash": "$2b$12$GWZXzPzNiElIWy.eb1/HIObkoaDwcsOpx7w10KtEHtLBr0VaCOZQu",
+    "authProvider": "local",
+    "emailVerified": false,
+    "createdAt": "2026-01-04T18:48:12.200Z"
+  }
+]
