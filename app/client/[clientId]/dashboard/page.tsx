@@ -9,7 +9,6 @@ import {
 } from "@/lib/paymentStore";
 // import { process.env.STRIPE_MODE } from "@/lib/stripe";
 import { StartOnboardingButton } from "./start-onboarding-button";
-// import { OpenStripeDashboardButton } from "./open-stripe-dashboard-button";
 import { LogoutButton } from "./logout-button";
 import { DownloadPaymentsCsvButton } from "./download-payments-csv-button";
 
@@ -133,7 +132,6 @@ export default async function DashboardPage({
       <section className="border rounded-lg p-4 space-y-3">
         <h2 className="font-semibold">Stripe</h2>
         <StartOnboardingButton clientId={clientId} />
-        {client.stripe?.accountId && <OpenStripeDashboardButton />}
       </section>
 
       <section className="border rounded-lg p-4 space-y-3">
