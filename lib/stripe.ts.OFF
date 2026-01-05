@@ -1,0 +1,11 @@
+/**
+ * TEMPORARILY DISABLED STRIPE
+ * Reason: Stripe ESM + Turbopack incompatibility
+ * Will be restored after deploy
+ */
+
+export const stripe = null;
+
+export function assertStripeEnabled(): never {
+  throw new Error("Stripe is temporarily disabled");
+}
