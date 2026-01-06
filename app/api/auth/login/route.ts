@@ -9,26 +9,40 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const email = String(body.email ?? "").trim().toLowerCase();
-    const password = String(body.password ?? "");
+    const email =
+      typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    const password =
+      typeof body.password === "string" ? body.password : "";
 
     if (!email || !password) {
-      return NextResponse.json({ error: "Missing fields" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Email and password are required" },
+        { status: 400 }
+      );
     }
 
     const user = await getUserByEmail(email);
-    if (!user || user.authProvider !== "local" || !user.passwordHash) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+    if (!user || !user.passwordHash) {
+      return NextResponse.json(
+        { error: "Invalid email or password" },
+        { status: 401 }
+      );
     }
 
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) {
-      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Invalid email or password" },
+        { status: 401 }
+      );
     }
 
     const client = await getClientByOwnerUserId(user.id);
     if (!client) {
-      return NextResponse.json({ error: "Client not found" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Client not found for this user" },
+        { status: 404 }
+      );
     }
 
     await setSession({
@@ -36,9 +50,19 @@ export async function POST(req: NextRequest) {
       clientId: client.id,
     });
 
-    return NextResponse.json({ clientId: client.id }, { status: 200 });
+    return NextResponse.json(
+      {
+        userId: user.id,
+        clientId: client.id,
+      },
+      { status: 200 }
+    );
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Unknown error";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
+}
+
+export async function GET() {
+  return NextResponse.json({ error: "Method Not Allowed" }, { status: 405 });
 }

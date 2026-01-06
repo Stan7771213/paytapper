@@ -242,3 +242,90 @@ export async function sendStripeConnectedEmail(params: {
     };
   }
 }
+
+/**
+ * sendPasswordResetEmail
+ *
+ * Sends a password reset link to the user.
+ *
+ * Rules:
+ * - Raw token is included only in the email
+ * - If RESEND_API_KEY is missing: return success:false (mode:"disabled")
+ * - No auth or password logic here
+ */
+export async function sendPasswordResetEmail(params: {
+  email: string;
+  resetUrl: string;
+}): Promise<EmailSendResult> {
+  const { email, resetUrl } = params;
+
+  const resend = getResend();
+  if (!resend) {
+    return {
+      success: false,
+      mode: "disabled",
+      message: "Email sending is disabled: RESEND_API_KEY is not set.",
+    };
+  }
+
+  const subject = "Reset your Paytapper password";
+  const html = `
+    <div style="font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; line-height: 1.6; color: #0f172a;">
+      <h1 style="font-size: 22px; margin-bottom: 16px;">Password reset</h1>
+
+      <p>You requested a password reset for your Paytapper account.</p>
+
+      <p style="margin-top: 16px;">
+        <a href="${resetUrl}" style="color: #2563eb; text-decoration: none;">
+          Click here to set a new password
+        </a>
+      </p>
+
+      <p style="margin-top: 16px; font-size: 14px; color: #475569;">
+        This link will expire in 30 minutes.
+      </p>
+
+      <p style="margin-top: 20px; font-size: 12px; color: #64748b;">
+        If you didn’t request this, you can safely ignore this email.
+      </p>
+
+      <p style="margin-top: 6px; font-size: 12px; color: #94a3b8;">
+        — Paytapper
+      </p>
+    </div>
+  `;
+
+  try {
+    const from = "Paytapper <no-reply@paytapper.net>";
+
+    const { data, error } = await resend.emails.send({
+      from,
+      to: email,
+      subject,
+      html,
+    });
+
+    if (error) {
+      return {
+        success: false,
+        mode: "resend-error",
+        message: "Failed to send password reset email.",
+        error,
+      };
+    }
+
+    return {
+      success: true,
+      mode: "resend",
+      message: "Password reset email sent.",
+      data,
+    };
+  } catch (err: unknown) {
+    return {
+      success: false,
+      mode: "resend-error",
+      message: "Exception while sending password reset email.",
+      error: err,
+    };
+  }
+}

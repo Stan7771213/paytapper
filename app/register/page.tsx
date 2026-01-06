@@ -2,52 +2,43 @@
 
 import { useState } from "react";
 
+type RegisterResponse =
+  | { userId: string; clientId: string }
+  | { error: string };
+
 export default function RegisterPage() {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setIsSubmitting(true);
     setError(null);
-
-    const formData = new FormData(e.currentTarget);
-
-    const displayName = String(formData.get("displayName") || "").trim();
-    const email = String(formData.get("email") || "").trim();
-    const password = String(formData.get("password") || "");
-    const confirmPassword = String(formData.get("confirmPassword") || "");
-
-    if (!email || !password || !confirmPassword) {
-      setError("All fields are required");
-      setIsSubmitting(false);
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
-      setIsSubmitting(false);
-      return;
-    }
+    setIsSubmitting(true);
 
     try {
-      const r = await fetch("/api/auth/register", {
+      const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          displayName,
-          email,
+          email: email.trim().toLowerCase(),
           password,
-          passwordConfirm: confirmPassword, // 🔴 ВАЖНО
         }),
       });
 
-      if (!r.ok) {
-        const data = await r.json().catch(() => ({}));
-        throw new Error(data?.error || "Registration failed");
+      const data = (await res.json()) as RegisterResponse;
+
+      if (!res.ok) {
+        const msg = "error" in data ? data.error : "Registration failed";
+        throw new Error(msg);
       }
 
-      window.location.href = "/post-auth";
+      if (!("clientId" in data) || !data.clientId) {
+        throw new Error("Invalid server response");
+      }
+
+      window.location.href = `/client/${encodeURIComponent(data.clientId)}/dashboard`;
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       setError(msg);
@@ -57,49 +48,59 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="max-w-md mx-auto p-6 space-y-4">
+    <main className="mx-auto max-w-md px-6 py-12">
       <h1 className="text-2xl font-semibold">Create account</h1>
+      <p className="mt-2 text-sm text-gray-400">
+        Create your Paytapper account to start accepting tips.
+      </p>
 
-      <form onSubmit={onSubmit} className="space-y-3">
-        <input
-          name="displayName"
-          placeholder="Name (optional)"
-          className="w-full rounded-md border border-gray-300 px-3 py-2"
-        />
+      <form onSubmit={onSubmit} className="mt-6 space-y-4">
+        <div className="space-y-2">
+          <label className="text-sm text-gray-200">Email</label>
+          <input
+            className="w-full rounded-md border border-gray-700 bg-black px-3 py-2 text-sm outline-none focus:border-gray-500"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+            required
+          />
+        </div>
 
-        <input
-          name="email"
-          type="email"
-          placeholder="Email"
-          required
-          className="w-full rounded-md border border-gray-300 px-3 py-2"
-        />
+        <div className="space-y-2">
+          <label className="text-sm text-gray-200">Password</label>
+          <input
+            className="w-full rounded-md border border-gray-700 bg-black px-3 py-2 text-sm outline-none focus:border-gray-500"
+            type="password"
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Create a password"
+            required
+          />
+        </div>
 
-        <input
-          name="password"
-          type="password"
-          placeholder="Password"
-          required
-          className="w-full rounded-md border border-gray-300 px-3 py-2"
-        />
-
-        <input
-          name="confirmPassword"
-          type="password"
-          placeholder="Repeat password"
-          required
-          className="w-full rounded-md border border-gray-300 px-3 py-2"
-        />
-
-        {error && <div className="text-sm text-red-600">{error}</div>}
+        {error ? (
+          <div className="rounded-md border border-red-800 bg-red-950/40 px-3 py-2 text-sm text-red-200">
+            {error}
+          </div>
+        ) : null}
 
         <button
+          className="w-full rounded-md border border-gray-700 px-3 py-2 text-sm font-medium hover:bg-gray-900 disabled:opacity-50"
           type="submit"
           disabled={isSubmitting}
-          className="w-full rounded-md border border-gray-700 px-3 py-2 text-sm font-medium hover:bg-gray-900 hover:text-white disabled:opacity-50"
         >
           {isSubmitting ? "Creating..." : "Create account"}
         </button>
+
+        <div className="pt-2 text-sm text-gray-300">
+          Already have an account?{" "}
+          <a className="underline" href="/login">
+            Log in
+          </a>
+        </div>
       </form>
     </main>
   );
