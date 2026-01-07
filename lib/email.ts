@@ -243,13 +243,6 @@ export async function sendStripeConnectedEmail(params: {
   }
 }
 
-export async function sendPasswordResetEmail(
-  email: string,
-  resetUrl: string
-): Promise<void> {
-  console.log("[email stub] password reset", { email, resetUrl });
-}
-
 export async function sendWelcomeEmail(input: {
   email: string;
   clientId: string;
