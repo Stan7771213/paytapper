@@ -48,7 +48,7 @@ export async function POST(req: Request) {
 
   const resetUrl = `${getBaseUrl()}/reset/${token}`;
 
-  await sendPasswordResetEmail(email, resetUrl);
+  await sendPasswordResetEmail({ email, resetUrl });
 
   return NextResponse.json({ ok: true });
 }
