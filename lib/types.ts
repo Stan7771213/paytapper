@@ -2,7 +2,6 @@
 
 // ---------- Shared ----------
 export type Currency = "eur";
-
 export const PLATFORM_FEE_PERCENT = 10;
 
 // ---------- User ----------
@@ -11,14 +10,12 @@ export type AuthProvider = "local" | "google";
 export type User = {
   id: string;
   email: string;
-
   authProvider: AuthProvider;
 
   // For local auth only
   passwordHash?: string;
 
   emailVerified: boolean;
-
   createdAt: string;
 };
 
@@ -54,14 +51,6 @@ export type Client = {
 
   // Set-once, used for dashboard access links (v1)
   dashboardToken: string;
-
-  // === AUTH v1.1 ===
-  passwordHash?: string;
-
-  passwordReset?: {
-    tokenHash: string;
-    expiresAt: string;
-  };
 };
 
 // ---------- Creation DTOs ----------

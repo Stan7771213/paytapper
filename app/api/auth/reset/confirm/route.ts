@@ -1,22 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
 import bcrypt from "bcryptjs";
-import { readJsonArray, writeJsonArray } from "@/lib/jsonStorage";
 
-const USERS_PATH = "users.json";
+import { consumePasswordResetToken } from "@/lib/passwordResetStore";
+import { updateUser } from "@/lib/userStore";
 
-type UserWithReset = {
-  id: string;
-  email: string;
-  passwordHash?: string;
-  passwordReset?: {
-    tokenHash: string;
-    expiresAt: string;
-  };
-};
-
-function hashToken(token: string): string {
-  return crypto.createHash("sha256").update(token).digest("hex");
+function json(data: any, status = 200) {
+  return NextResponse.json(data, { status });
 }
 
 export async function POST(req: NextRequest) {
@@ -29,47 +18,34 @@ export async function POST(req: NextRequest) {
       typeof body?.newPassword === "string" ? body.newPassword : "";
 
     if (!token || newPassword.length < 8) {
-      return NextResponse.json(
+      return json(
         { error: "Invalid token or password" },
-        { status: 400 }
+        400
       );
     }
 
-    const tokenHash = hashToken(token);
-    const users = await readJsonArray<UserWithReset>(USERS_PATH);
-
-    const user = users.find((u) => {
-      const pr = u.passwordReset;
-      if (!pr) return false;
-      if (pr.tokenHash !== tokenHash) return false;
-      if (Date.parse(pr.expiresAt) < Date.now()) return false;
-      return true;
+    // 1) Consume token (single source of truth)
+    const { userId } = await consumePasswordResetToken({
+      rawToken: token,
     });
 
-    if (!user) {
-      return NextResponse.json(
-        { error: "Invalid or expired token" },
-        { status: 400 }
-      );
-    }
-
+    // 2) Hash new password
     const passwordHash = await bcrypt.hash(newPassword, 12);
 
-    user.passwordHash = passwordHash;
-    delete user.passwordReset;
+    // 3) Update user password
+    await updateUser(userId, { passwordHash });
 
-    await writeJsonArray(USERS_PATH, users);
-
-    return NextResponse.json({ ok: true });
+    return json({ ok: true });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Unknown error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const message =
+      e instanceof Error ? e.message : "Invalid or expired token";
+    return json({ error: message }, 400);
   }
 }
 
 export async function GET() {
-  return NextResponse.json(
+  return json(
     { error: "Method Not Allowed" },
-    { status: 405 }
+    405
   );
 }
