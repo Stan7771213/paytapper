@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => null);
     const token = typeof body?.token === "string" ? body.token.trim() : "";
     const newPassword =
-      typeof body?.password === "string" ? body.password : "";
+      typeof body?.newPassword === "string" ? body.newPassword : "";
 
     if (!token || newPassword.length < 8) {
       return json({ error: "Invalid token or password" }, 400);
