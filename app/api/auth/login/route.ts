@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 
 import { getUserByEmail } from "@/lib/userStore";
-import { getClientByOwnerUserId } from "@/lib/clientStore";
+import { getClientByOwnerUserId, getClientByEmail } from "@/lib/clientStore";
 import { setSession } from "@/lib/session";
 
 export async function POST(req: NextRequest) {
@@ -37,11 +37,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const client = await getClientByOwnerUserId(user.id);
+    const client = await getClientByEmail(user.email);
+
     if (!client) {
       return NextResponse.json(
-        { error: "Client not found for this user" },
-        { status: 404 }
+        { error: "No client associated with this account" },
+        { status: 401 }
       );
     }
 
