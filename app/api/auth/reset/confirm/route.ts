@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
-import { getAllUsers, updateUser } from "@/lib/userStore";
+import { readJsonArray, writeJsonArray } from "@/lib/jsonStorage";
+import type { User } from "@/lib/types";
+
+const USERS_PATH = "users.json";
 
 function hashToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
@@ -23,7 +26,8 @@ export async function POST(req: NextRequest) {
   }
 
   const tokenHash = hashToken(token);
-  const users = await getAllUsers();
+
+  const users = await readJsonArray<User>(USERS_PATH);
 
   const user = users.find((u) => {
     const pr = u.passwordReset;
@@ -40,12 +44,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const passwordHash = await bcrypt.hash(newPassword, 12);
+  user.passwordHash = await bcrypt.hash(newPassword, 12);
+  user.passwordReset = undefined;
 
-  await updateUser(user.id, {
-    passwordHash,
-    passwordReset: undefined,
-  });
+  await writeJsonArray(USERS_PATH, users);
 
   return NextResponse.json({ ok: true });
 }
