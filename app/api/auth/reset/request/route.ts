@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
-import { getUserByEmail, updateUser } from "@/lib/userStore";
+import { readJsonArray, writeJsonArray } from "@/lib/jsonStorage";
 import { sendPasswordResetEmail } from "@/lib/email";
+
+const USERS_PATH = "users.json";
 
 function hashToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
@@ -9,7 +11,7 @@ function hashToken(token: string): string {
 
 function getBaseUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_BASE_URL;
-  if (explicit && explicit.trim()) return explicit.trim().replace(/\/+$/, "");
+  if (explicit && explicit.trim()) return explicit.trim();
 
   const vercelUrl = process.env.VERCEL_URL;
   if (vercelUrl && vercelUrl.trim()) {
@@ -19,29 +21,39 @@ function getBaseUrl(): string {
   return "http://localhost:3000";
 }
 
+type UserWithReset = {
+  id: string;
+  email: string;
+  passwordReset?: {
+    tokenHash: string;
+    expiresAt: string;
+  };
+};
+
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const email =
     typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
 
+  // Do not reveal whether email exists
   if (!email) {
-    return NextResponse.json({ error: "Email required" }, { status: 400 });
+    return NextResponse.json({ ok: true });
   }
 
-  const user = await getUserByEmail(email);
+  const users = await readJsonArray<UserWithReset>(USERS_PATH);
+  const user = users.find((u) => u.email === email);
 
-  // security: always return ok
   if (!user) {
     return NextResponse.json({ ok: true });
   }
 
   const token = crypto.randomUUID();
   const tokenHash = hashToken(token);
-  const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString(); // 30 min
 
-  await updateUser(user.id, {
-    passwordReset: { tokenHash, expiresAt },
-  });
+  user.passwordReset = { tokenHash, expiresAt };
+
+  await writeJsonArray(USERS_PATH, users);
 
   const resetUrl = `${getBaseUrl()}/reset-password?token=${token}`;
 
