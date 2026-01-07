@@ -3,7 +3,9 @@ import path from "node:path";
 import { list, put } from "@vercel/blob";
 
 function isVercelRuntime(): boolean {
-  return Boolean(process.env.VERCEL);
+  // Single source of truth:
+  // if blob token exists → use Vercel Blob
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 }
 
 function requireEnv(name: string): string {
@@ -23,6 +25,7 @@ function normalizePathname(relativePath: string): string {
 export async function readJsonArray<T>(relativePath: string): Promise<T[]> {
   const pathname = normalizePathname(relativePath);
 
+  // LOCAL FS
   if (!isVercelRuntime()) {
     const abs = path.join(process.cwd(), pathname);
     try {
@@ -39,11 +42,11 @@ export async function readJsonArray<T>(relativePath: string): Promise<T[]> {
     }
   }
 
+  // VERCEL BLOB
   requireEnv("BLOB_READ_WRITE_TOKEN");
 
   const res = await list({ prefix: pathname, limit: 100 });
   const exact = res.blobs.find((b) => b.pathname === pathname);
-
   if (!exact?.url) return [];
 
   const r = await fetch(exact.url);
@@ -58,7 +61,10 @@ export async function readJsonArray<T>(relativePath: string): Promise<T[]> {
   return parsed as T[];
 }
 
-export async function writeJsonArray(relativePath: string, data: unknown[]): Promise<void> {
+export async function writeJsonArray(
+  relativePath: string,
+  data: unknown[]
+): Promise<void> {
   const pathname = normalizePathname(relativePath);
 
   if (!Array.isArray(data)) {
@@ -67,6 +73,7 @@ export async function writeJsonArray(relativePath: string, data: unknown[]): Pro
 
   const content = JSON.stringify(data, null, 2) + "\n";
 
+  // LOCAL FS
   if (!isVercelRuntime()) {
     const abs = path.join(process.cwd(), pathname);
     await fs.mkdir(path.dirname(abs), { recursive: true });
@@ -74,6 +81,7 @@ export async function writeJsonArray(relativePath: string, data: unknown[]): Pro
     return;
   }
 
+  // VERCEL BLOB
   requireEnv("BLOB_READ_WRITE_TOKEN");
 
   await put(pathname, content, {
