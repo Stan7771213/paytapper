@@ -1,24 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
-import { readJsonArray, writeJsonArray } from "@/lib/jsonStorage";
+
+import { getUserByEmail } from "@/lib/userStore";
+import { createPasswordResetToken } from "@/lib/passwordResetStore";
 import { sendPasswordResetEmail } from "@/lib/email";
 
-const USERS_PATH = "users.json";
 const RESET_TTL_SECONDS = 60 * 30; // 30 minutes
-
-type UserWithReset = {
-  id: string;
-  email: string;
-  passwordHash?: string;
-  passwordReset?: {
-    tokenHash: string;
-    expiresAt: string;
-  };
-};
-
-function hashToken(token: string): string {
-  return crypto.createHash("sha256").update(token).digest("hex");
-}
 
 function getBaseUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_BASE_URL;
@@ -40,33 +26,27 @@ export async function POST(req: NextRequest) {
     const email =
       typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
 
-    // Security: always return ok
+    // Security: never reveal whether email exists
     if (!email) {
       return NextResponse.json({ ok: true });
     }
 
-    const users = await readJsonArray<UserWithReset>(USERS_PATH);
-    const user = users.find((u) => u.email === email);
+    const user = await getUserByEmail(email);
 
     if (!user) {
       return NextResponse.json({ ok: true });
     }
 
-    const rawToken = crypto.randomUUID() + crypto.randomUUID();
-    const tokenHash = hashToken(rawToken);
-    const expiresAt = new Date(
-      Date.now() + RESET_TTL_SECONDS * 1000
-    ).toISOString();
+    // 1) Create reset token (single source of truth)
+    const { rawToken } = await createPasswordResetToken({
+      userId: user.id,
+      ttlSeconds: RESET_TTL_SECONDS,
+    });
 
-    user.passwordReset = {
-      tokenHash,
-      expiresAt,
-    };
-
-    await writeJsonArray(USERS_PATH, users);
-
+    // 2) Build reset URL
     const resetUrl = `${getBaseUrl()}/reset-password?token=${rawToken}`;
 
+    // 3) Send email
     await sendPasswordResetEmail({
       email,
       resetUrl,
