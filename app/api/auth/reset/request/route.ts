@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserByEmail } from "@/lib/userStore";
-import { createPasswordResetToken } from "@/lib/passwordResetStore";
+import crypto from "crypto";
+import { getUserByEmail, updateUser } from "@/lib/userStore";
 import { sendPasswordResetEmail } from "@/lib/email";
 
-const RESET_TTL_SECONDS = 60 * 30; // 30 minutes
+function hashToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
 
 function getBaseUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_BASE_URL;
-  if (explicit && explicit.trim()) return explicit.trim();
+  if (explicit && explicit.trim()) return explicit.trim().replace(/\/+$/, "");
 
   const vercelUrl = process.env.VERCEL_URL;
   if (vercelUrl && vercelUrl.trim()) {
@@ -18,37 +20,34 @@ function getBaseUrl(): string {
 }
 
 export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json().catch(() => null);
-    const email =
-      typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
+  const body = await req.json().catch(() => null);
+  const email =
+    typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
 
-    // Security: never reveal whether email exists
-    if (!email) {
-      return NextResponse.json({ ok: true });
-    }
-
-    const user = await getUserByEmail(email);
-
-    if (user) {
-      const { rawToken } = await createPasswordResetToken({
-        userId: user.id,
-        ttlSeconds: RESET_TTL_SECONDS,
-      });
-
-      const resetUrl = `${getBaseUrl()}/reset-password?token=${rawToken}`;
-
-      await sendPasswordResetEmail({
-        email,
-        resetUrl,
-      });
-    }
-
-    return NextResponse.json({ ok: true });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Unknown error";
-    return NextResponse.json({ error: msg }, { status: 500 });
+  if (!email) {
+    return NextResponse.json({ error: "Email required" }, { status: 400 });
   }
+
+  const user = await getUserByEmail(email);
+
+  // security: always return ok
+  if (!user) {
+    return NextResponse.json({ ok: true });
+  }
+
+  const token = crypto.randomUUID();
+  const tokenHash = hashToken(token);
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+  await updateUser(user.id, {
+    passwordReset: { tokenHash, expiresAt },
+  });
+
+  const resetUrl = `${getBaseUrl()}/reset-password?token=${token}`;
+
+  await sendPasswordResetEmail({ email, resetUrl });
+
+  return NextResponse.json({ ok: true });
 }
 
 export async function GET() {
