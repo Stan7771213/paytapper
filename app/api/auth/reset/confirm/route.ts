@@ -2,13 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { readJsonArray, writeJsonArray } from "@/lib/jsonStorage";
-import type { User } from "@/lib/types";
 
 const USERS_PATH = "users.json";
 
 function hashToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
+
+type UserWithPasswordReset = {
+  id: string;
+  email: string;
+  passwordHash?: string;
+  passwordReset?: {
+    tokenHash: string;
+    expiresAt: string;
+  };
+};
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
@@ -27,7 +36,7 @@ export async function POST(req: NextRequest) {
 
   const tokenHash = hashToken(token);
 
-  const users = await readJsonArray<User>(USERS_PATH);
+  const users = await readJsonArray<UserWithPasswordReset>(USERS_PATH);
 
   const user = users.find((u) => {
     const pr = u.passwordReset;
@@ -45,7 +54,7 @@ export async function POST(req: NextRequest) {
   }
 
   user.passwordHash = await bcrypt.hash(newPassword, 12);
-  user.passwordReset = undefined;
+  delete user.passwordReset;
 
   await writeJsonArray(USERS_PATH, users);
 
