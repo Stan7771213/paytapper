@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/sessions";
+import { getClientById } from "@/lib/clientStore";
 
 export const dynamic = "force-dynamic";
 
@@ -10,5 +11,13 @@ export default async function PostAuthPage() {
     redirect("/login");
   }
 
-  redirect(`/client/${session.clientId}/dashboard`);
+  const client = await getClientById(session.clientId);
+
+  if (!client || !client.dashboardToken) {
+    throw new Error("Missing dashboard URL");
+  }
+
+  redirect(
+    `/client/${client.id}/dashboard?token=${client.dashboardToken}`
+  );
 }
