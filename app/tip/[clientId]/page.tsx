@@ -18,6 +18,9 @@ export default async function Page({ params }: TipPageProps) {
 
   const isTestMode = stripeMode === "test";
 
+  // cache-busting key for SafariViewController / iOS webview
+  const renderKey = `${clientId}-${stripeMode}`;
+
   return (
     <main className="min-h-screen">
       <div className="max-w-xl mx-auto px-4 pt-4">
@@ -29,6 +32,7 @@ export default async function Page({ params }: TipPageProps) {
       </div>
 
       <TipClient
+        key={renderKey}
         clientId={clientId}
         displayName={displayName}
         branding={branding}
