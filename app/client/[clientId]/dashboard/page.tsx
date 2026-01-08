@@ -5,9 +5,7 @@ import { getSession } from "@/lib/auth/sessions";
 import { getClientById } from "@/lib/clientStore";
 import {
   getPaymentsSummaryByClientId,
-  getPaymentsByClientId,
 } from "@/lib/paymentStore";
-// import { process.env.STRIPE_MODE } from "@/lib/stripe";
 import { StartOnboardingButton } from "./start-onboarding-button";
 import { LogoutButton } from "./logout-button";
 import { DownloadPaymentsCsvButton } from "./download-payments-csv-button";
@@ -64,12 +62,18 @@ export default async function DashboardPage({
   const tipUrl = `${baseUrl}/tip/${clientId}`;
   const showTestWarning = process.env.STRIPE_MODE === "test" && !isLocalhost(baseUrl);
 
-  const stripeState =
-    client.payoutMode === "direct"
-      ? await getStripeState(clientId)
-      : "active";
+  let stripeState: "active" | "other" = "other";
 
-  const canShowTip = client.payoutMode !== "direct" || stripeState === "active";
+  if (client.payoutMode !== "direct") {
+    stripeState = "active";
+  } else if (client.stripe?.accountId) {
+    // LEGACY v1 client: Stripe already connected
+    stripeState = "active";
+  } else {
+    stripeState = await getStripeState(clientId);
+  }
+
+  const canShowTip = stripeState === "active";
 
   return (
     <main className="max-w-xl mx-auto p-6 space-y-6">
