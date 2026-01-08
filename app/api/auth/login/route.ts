@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 
 import { getUserByEmail } from "@/lib/userStore";
 import { getClientByOwnerUserId } from "@/lib/clientStore";
-import { setSession } from "@/lib/session"; // файл должен существовать в проекте
+import { setSession } from "@/lib/session";
 
 function json(data: any, status = 200) {
   return NextResponse.json(data, { status });
@@ -21,7 +21,6 @@ export async function POST(req: NextRequest) {
     // 1) Find user
     const user = await getUserByEmail(email);
     if (!user || !user.passwordHash) {
-      // Do not reveal whether email exists
       return json({ error: "Invalid credentials" }, 401);
     }
 
@@ -40,7 +39,10 @@ export async function POST(req: NextRequest) {
     // 4) Create session
     await setSession(client.id);
 
-    return json({ ok: true });
+    // 5) Explicit redirect target (SOURCE OF TRUTH)
+    return json({
+      dashboardUrl: "/client/" + client.id + "/dashboard",
+    });
   } catch (err) {
     console.error("Login error:", err);
     return json({ error: "Internal error" }, 500);
