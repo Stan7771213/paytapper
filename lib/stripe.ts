@@ -3,16 +3,16 @@ import Stripe from "stripe";
 function requireEnv(name: string): string {
   const v = process.env[name];
   if (!v || !v.trim()) {
-    throw new Error(`Missing required env var: ${name}`);
+    throw new Error(\`Missing required env var: \${name}\`);
   }
   return v.trim();
 }
 
-const STRIPE_MODE = (process.env.STRIPE_MODE || "test") as "test" | "live";
+export const stripeMode = (process.env.STRIPE_MODE || "test") as "test" | "live";
 
 let secretKey: string;
 
-if (STRIPE_MODE === "live") {
+if (stripeMode === "live") {
   if (process.env.PAYTAPPER_LIVE_ACK !== "1") {
     throw new Error(
       "PAYTAPPER_LIVE_ACK=1 is required for live Stripe deployments"
