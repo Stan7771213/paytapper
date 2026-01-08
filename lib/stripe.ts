@@ -23,5 +23,6 @@ if (stripeMode === "live") {
   secretKey = requireEnv("STRIPE_SECRET_KEY_TEST");
 }
 
-// Intentionally do NOT pin apiVersion (SDK default)
-export const stripe = new Stripe(secretKey, {});
+export const stripe = new Stripe(secretKey, {
+  apiVersion: "2025-11-17.clover",
+});
