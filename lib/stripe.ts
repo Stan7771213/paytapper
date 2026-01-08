@@ -1,6 +1,26 @@
-/**
- * TEMP STRIPE STUB
- * Used to unblock build & deploy.
- * Real Stripe logic will be restored later.
- */
-export const stripe = null as any;
+import Stripe from "stripe";
+
+function requireEnv(name: string): string {
+  const v = process.env[name];
+  if (!v || !v.trim()) {
+    throw new Error(`Missing required env var: ${name}`);
+  }
+  return v.trim();
+}
+
+const STRIPE_MODE = (process.env.STRIPE_MODE || "test") as "test" | "live";
+
+let secretKey: string;
+
+if (STRIPE_MODE === "live") {
+  if (process.env.PAYTAPPER_LIVE_ACK !== "1") {
+    throw new Error(
+      "PAYTAPPER_LIVE_ACK=1 is required for live Stripe deployments"
+    );
+  }
+  secretKey = requireEnv("STRIPE_SECRET_KEY_LIVE");
+} else {
+  secretKey = requireEnv("STRIPE_SECRET_KEY_TEST");
+}
+
+export const stripe = new Stripe(secretKey);
