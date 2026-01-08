@@ -3,9 +3,9 @@ import bcrypt from "bcryptjs";
 
 import { getUserByEmail } from "@/lib/userStore";
 import { getClientByOwnerUserId } from "@/lib/clientStore";
-import { setSession } from "@/lib/session";
+import { createSession } from "@/lib/auth/sessions";
 
-function json(data: any, status = 200) {
+function json(data: unknown, status = 200) {
   return NextResponse.json(data, { status });
 }
 
@@ -18,31 +18,24 @@ export async function POST(req: NextRequest) {
       return json({ error: "Invalid credentials" }, 401);
     }
 
-    // 1) Find user
     const user = await getUserByEmail(email);
     if (!user || !user.passwordHash) {
       return json({ error: "Invalid credentials" }, 401);
     }
 
-    // 2) Verify password
     const ok = await bcrypt.compare(password, user.passwordHash);
     if (!ok) {
       return json({ error: "Invalid credentials" }, 401);
     }
 
-    // 3) Find client owned by user
     const client = await getClientByOwnerUserId(user.id);
     if (!client) {
       return json({ error: "Client not found for user" }, 500);
     }
 
-    // 4) Create session
-    await setSession(client.id);
+    await createSession(client.id);
 
-    // 5) Explicit redirect target (SOURCE OF TRUTH)
-    return json({
-      dashboardUrl: "/client/" + client.id + "/dashboard",
-    });
+    return json({ ok: true });
   } catch (err) {
     console.error("Login error:", err);
     return json({ error: "Internal error" }, 500);
