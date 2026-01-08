@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
+import crypto from "node:crypto";
 
+import { createUser, getUserByEmail } from "@/lib/userStore";
 import { createClient } from "@/lib/clientStore";
 import { createSession } from "@/lib/auth/sessions";
 import { sendWelcomeEmail } from "@/lib/email";
@@ -12,39 +14,61 @@ function json(data: unknown, status = 200) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+    const {
+      displayName,
+      email,
+      password,
+      passwordConfirm,
+      payoutMode,
+    } = body ?? {};
 
-    const { displayName, email, password, payoutMode } = body ?? {};
-
+    // ---- Validation ----
     if (
-      !displayName ||
-      typeof displayName !== "string" ||
       !email ||
       typeof email !== "string" ||
       !password ||
-      typeof password !== "string"
+      typeof password !== "string" ||
+      !passwordConfirm ||
+      password !== passwordConfirm
     ) {
       return json({ error: "Invalid input" }, 400);
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
+    const normalizedEmail = email.toLowerCase().trim();
 
-    // v1.1: ownerUserId = clientId (single-user model)
-    const client = await createClient({
-      displayName,
-      email: email.toLowerCase(),
-      payoutMode: payoutMode === "platform" ? "platform" : "direct",
-      ownerUserId: crypto.randomUUID(),
+    // ---- Check existing user ----
+    const existing = await getUserByEmail(normalizedEmail);
+    if (existing) {
+      return json({ error: "User with this email already exists" }, 409);
+    }
+
+    // ---- Create User ----
+    const passwordHash = await bcrypt.hash(password, 12);
+    const userId = crypto.randomUUID();
+
+    await createUser({
+      id: userId,
+      email: normalizedEmail,
+      passwordHash,
+      authProvider: "local",
+      emailVerified: false,
+      createdAt: new Date().toISOString(),
     });
 
-    // persist passwordHash (set-once)
-    await import("@/lib/clientStore").then(({ updateClient }) =>
-      updateClient(client.id, { passwordHash })
-    );
+    // ---- Create Client owned by User ----
+    const client = await createClient({
+      displayName: displayName || normalizedEmail,
+      email: normalizedEmail,
+      payoutMode: payoutMode === "platform" ? "platform" : "direct",
+      ownerUserId: userId,
+    });
 
+    // ---- Create session (by clientId, v1.1) ----
     await createSession(client.id);
 
+    // ---- Welcome email ----
     await sendWelcomeEmail({
-      email: client.email!,
+      email: normalizedEmail,
       clientId: client.id,
       tipUrl: `/tip/${client.id}`,
       dashboardUrl: `/client/${client.id}/dashboard`,
