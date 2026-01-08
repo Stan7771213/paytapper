@@ -23,4 +23,6 @@ if (STRIPE_MODE === "live") {
   secretKey = requireEnv("STRIPE_SECRET_KEY_TEST");
 }
 
-export const stripe = new Stripe(secretKey);
+export const stripe = new Stripe(secretKey, {
+  apiVersion: "2025-11-17.clover",
+});
