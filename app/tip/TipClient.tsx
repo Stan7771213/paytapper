@@ -73,8 +73,6 @@ export default function TipClient({ clientId, displayName, branding }: TipClient
         throw new Error('Invalid response from server');
       }
 
-      // IMPORTANT:
-      // Do NOT auto-redirect. Show a user-initiated button instead.
       setCheckoutUrl(data.url);
     } catch (err) {
       const message =
@@ -104,6 +102,11 @@ export default function TipClient({ clientId, displayName, branding }: TipClient
   const description = branding?.description;
   const avatarUrl = branding?.avatarUrl;
 
+  const safeAvatarUrl =
+    typeof avatarUrl === 'string' && avatarUrl.startsWith('https://')
+      ? avatarUrl
+      : null;
+
   return (
     <main className="min-h-screen px-4 py-10 text-white bg-gradient-to-b from-black via-gray-950 to-black flex items-center justify-center">
       <div className="w-full max-w-md">
@@ -111,15 +114,17 @@ export default function TipClient({ clientId, displayName, branding }: TipClient
           <div className="space-y-3 text-center">
             <p className="text-xs tracking-wide text-gray-400 uppercase">Paytapper</p>
 
-            {avatarUrl ? (
+            {safeAvatarUrl && (
               <div className="flex items-center justify-center">
                 <img
-                  src={avatarUrl}
+                  src={safeAvatarUrl}
                   alt={`${title} avatar`}
                   className="h-16 w-16 rounded-full border border-gray-800 object-cover"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
                 />
               </div>
-            ) : null}
+            )}
 
             <h1 className="text-3xl font-bold">{title}</h1>
 
@@ -153,65 +158,46 @@ export default function TipClient({ clientId, displayName, branding }: TipClient
             </div>
           ) : (
             <>
-              <div className="rounded-xl border border-gray-800 bg-black/30 px-3 py-2">
-                <p className="text-[11px] text-gray-500">Client reference</p>
-                <p className="font-mono text-xs text-gray-300 break-all">
-                  {effectiveClientId || '—'}
-                </p>
-              </div>
-
               <div className="grid grid-cols-2 gap-3 pt-1">
-                {TIP_PRESETS_EUR.map((amount) => {
-                  const cents = Math.round(amount * 100);
-                  return (
-                    <button
-                      key={amount}
-                      type="button"
-                      disabled={disabled}
-                      onClick={() => startCheckout(amount)}
-                      className="py-3 rounded-xl border border-gray-700 bg-gray-900 hover:bg-gray-800 text-lg font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      €{formatEur(cents)}
-                    </button>
-                  );
-                })}
+                {TIP_PRESETS_EUR.map((amount) => (
+                  <button
+                    key={amount}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => startCheckout(amount)}
+                    className="py-3 rounded-xl border border-gray-700 bg-gray-900 hover:bg-gray-800 text-lg font-semibold disabled:opacity-40"
+                  >
+                    €{formatEur(Math.round(amount * 100))}
+                  </button>
+                ))}
               </div>
 
               <form onSubmit={handleCustomSubmit} className="space-y-2 pt-1">
-                <label className="block text-sm text-gray-400" htmlFor="customAmount">
-                  Custom amount
-                </label>
-
                 <div className="flex gap-2">
-                  <div className="flex-1 flex items-center gap-2 rounded-xl border border-gray-700 bg-gray-900 px-3 py-2">
-                    <span className="text-sm text-gray-400">€</span>
-                    <input
-                      id="customAmount"
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="e.g. 7.50"
-                      value={customAmount}
-                      onChange={(e) => setCustomAmount(e.target.value)}
-                      className="w-full bg-transparent text-sm focus:outline-none"
-                      disabled={disabled}
-                    />
-                  </div>
-
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="Custom amount"
+                    value={customAmount}
+                    onChange={(e) => setCustomAmount(e.target.value)}
+                    className="flex-1 rounded-xl border border-gray-700 bg-gray-900 px-3 py-2 text-sm"
+                    disabled={disabled}
+                  />
                   <button
                     type="submit"
                     disabled={disabled}
-                    className="px-4 py-2 rounded-xl bg-white text-black text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="px-4 py-2 rounded-xl bg-white text-black text-sm font-semibold disabled:opacity-40"
                   >
-                    {isLoading ? 'Preparing…' : 'Continue'}
+                    Continue
                   </button>
                 </div>
               </form>
             </>
           )}
 
-          <div className="min-h-[18px]">
-            {errorMsg && <p className="text-xs text-red-400 text-center">{errorMsg}</p>}
-          </div>
+          {errorMsg && (
+            <p className="text-xs text-red-400 text-center">{errorMsg}</p>
+          )}
 
           <p className="text-[11px] text-gray-500 text-center">
             Powered by Paytapper and Stripe.
