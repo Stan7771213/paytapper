@@ -8,11 +8,11 @@ function requireEnv(name: string): string {
   return v.trim();
 }
 
-const STRIPE_MODE = (process.env.STRIPE_MODE || "test") as "test" | "live";
+export const stripeMode = (process.env.STRIPE_MODE || "test") as "test" | "live";
 
 let secretKey: string;
 
-if (STRIPE_MODE === "live") {
+if (stripeMode === "live") {
   if (process.env.PAYTAPPER_LIVE_ACK !== "1") {
     throw new Error(
       "PAYTAPPER_LIVE_ACK=1 is required for live Stripe deployments"
@@ -23,10 +23,5 @@ if (STRIPE_MODE === "live") {
   secretKey = requireEnv("STRIPE_SECRET_KEY_TEST");
 }
 
-// IMPORTANT:
-// We intentionally do NOT pin apiVersion.
-// Stripe SDK default must be used to avoid SDK/version conflicts.
-export const stripe = new Stripe(
-  secretKey,
-  {} as Stripe.StripeConfig
-);
+// Intentionally do NOT pin apiVersion (SDK default)
+export const stripe = new Stripe(secretKey, {});
