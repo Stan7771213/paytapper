@@ -17,7 +17,7 @@ export default function LoginPage() {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // 🔑 CRITICAL
+        credentials: 'include',
         body: JSON.stringify({ email, password }),
       });
 
@@ -27,12 +27,8 @@ export default function LoginPage() {
         throw new Error(data?.error || 'Login failed');
       }
 
-      if (!data?.dashboardUrl) {
-        throw new Error('Missing dashboard URL');
-      }
-
-      // Hard redirect — prod-safe
-      window.location.assign(data.dashboardUrl);
+      // ✅ Canonical redirect
+      window.location.assign('/post-auth');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
