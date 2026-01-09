@@ -49,12 +49,19 @@ export default async function DashboardPage({
   const { clientId } = await params;
 
   const session = await getSession();
-  if (!session || session.clientId !== clientId) {
+
+  if (!session) {
     redirect("/login");
   }
 
+  if (session.clientId !== clientId) {
+    redirect(`/client/${session.clientId}/dashboard`);
+  }
+
   const client = await getClientById(clientId);
-  if (!client) redirect("/login");
+  if (!client) {
+    redirect("/login");
+  }
 
   const summary = await getPaymentsSummaryByClientId(clientId);
 
@@ -105,7 +112,10 @@ export default async function DashboardPage({
         <p>
           <strong>Client ID:</strong> {clientId}
         </p>
-        <DisplayNameForm initialValue={client.branding?.title} fallbackValue={client.displayName} />
+        <DisplayNameForm
+          initialValue={client.branding?.title}
+          fallbackValue={client.displayName}
+        />
         {client.email && (
           <p>
             <strong>Email:</strong> {client.email}
@@ -155,7 +165,8 @@ export default async function DashboardPage({
       <section className="border rounded-lg p-4 space-y-3">
         <h2 className="font-semibold">Payments</h2>
         <p>
-          <strong>Total received:</strong> {formatEur(summary.totalNetCents)} €
+          <strong>Total received:</strong>{" "}
+          {formatEur(summary.totalNetCents)} €
         </p>
         <DownloadPaymentsCsvButton clientId={clientId} />
       </section>
