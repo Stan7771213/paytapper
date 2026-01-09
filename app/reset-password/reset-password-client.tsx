@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 export default function ResetPasswordClient() {
@@ -12,6 +12,15 @@ export default function ResetPasswordClient() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [redirectAt, setRedirectAt] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!redirectAt) return;
+    const t = setTimeout(() => {
+      window.location.assign('/login');
+    }, redirectAt);
+    return () => clearTimeout(t);
+  }, [redirectAt]);
 
   async function requestReset(e: React.FormEvent) {
     e.preventDefault();
@@ -45,7 +54,8 @@ export default function ResetPasswordClient() {
     });
 
     if (res.ok) {
-      setStatus('Password updated. You can now log in.');
+      setStatus('Password updated successfully. Redirecting to login…');
+      setRedirectAt(2500);
     } else {
       setStatus(null);
       setError('Invalid or expired token');
@@ -93,12 +103,8 @@ export default function ResetPasswordClient() {
         </form>
       )}
 
-      {error && (
-        <p className="text-sm text-red-600">{error}</p>
-      )}
-      {status && (
-        <p className="text-sm text-gray-600">{status}</p>
-      )}
+      {error && <p className="text-sm text-red-600">{error}</p>}
+      {status && <p className="text-sm text-gray-600">{status}</p>}
     </main>
   );
 }
