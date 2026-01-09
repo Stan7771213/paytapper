@@ -16,12 +16,17 @@ export default async function Page({ params }: TipPageProps) {
 
   const branding: Client["branding"] | undefined = client?.branding;
   const displayName =
-    client?.branding?.title ?? client?.displayName ?? undefined;
+    branding?.title ?? client?.displayName ?? undefined;
 
   const isTestMode = stripeMode === "test";
 
-  // cache-busting key for SafariViewController / iOS webview
-  const renderKey = `${clientId}-${stripeMode}`;
+  // Re-render TipClient when any public branding changes
+  const renderKey = [
+    clientId,
+    stripeMode,
+    branding?.title ?? "",
+    branding?.description ?? "",
+  ].join("|");
 
   return (
     <main className="min-h-screen">
