@@ -7,7 +7,6 @@ export function PublicMessageForm({
 }: {
   initialValue?: string;
 }) {
-  const [value, setValue] = useState(initialValue ?? '');
   const [draft, setDraft] = useState(initialValue ?? '');
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -22,14 +21,8 @@ export function PublicMessageForm({
       body: JSON.stringify({ description: draft }),
     });
 
-    setValue(draft);
-    setEditing(false);
-    setSaving(false);
-  }
-
-  function onCancel() {
-    setDraft(value);
-    setEditing(false);
+    // Hard reload to sync SSR consumers (tip page)
+    window.location.reload();
   }
 
   return (
@@ -48,7 +41,7 @@ export function PublicMessageForm({
 
       {!editing ? (
         <p className="text-sm text-gray-200 whitespace-pre-wrap">
-          {value || <span className="text-gray-500">No public message</span>}
+          {initialValue || <span className="text-gray-500">No public message</span>}
         </p>
       ) : (
         <form onSubmit={onSave} className="space-y-3">
@@ -71,7 +64,7 @@ export function PublicMessageForm({
             </button>
             <button
               type="button"
-              onClick={onCancel}
+              onClick={() => setEditing(false)}
               disabled={saving}
               className="text-sm text-gray-400 hover:text-gray-200"
             >

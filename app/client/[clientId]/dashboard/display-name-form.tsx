@@ -9,7 +9,6 @@ export function DisplayNameForm({
   initialValue?: string;
   fallbackValue: string;
 }) {
-  const [value, setValue] = useState(initialValue ?? '');
   const [draft, setDraft] = useState(initialValue ?? '');
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -24,17 +23,11 @@ export function DisplayNameForm({
       body: JSON.stringify({ title: draft }),
     });
 
-    setValue(draft);
-    setEditing(false);
-    setSaving(false);
+    // Hard reload to re-fetch SSR data correctly
+    window.location.reload();
   }
 
-  function onCancel() {
-    setDraft(value);
-    setEditing(false);
-  }
-
-  const display = value || fallbackValue;
+  const display = initialValue || fallbackValue;
 
   return (
     <div className="space-y-1">
@@ -72,7 +65,7 @@ export function DisplayNameForm({
             </button>
             <button
               type="button"
-              onClick={onCancel}
+              onClick={() => setEditing(false)}
               disabled={saving}
               className="text-sm text-gray-400 hover:text-gray-200"
             >
