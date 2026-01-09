@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { getClientById } from "@/lib/clientStore";
 import { stripeMode } from "@/lib/stripe";
 import TipClient from "../TipClient";
