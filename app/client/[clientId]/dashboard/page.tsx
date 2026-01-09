@@ -3,9 +3,7 @@ export const dynamic = "force-dynamic";
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/sessions";
 import { getClientById } from "@/lib/clientStore";
-import {
-  getPaymentsSummaryByClientId,
-} from "@/lib/paymentStore";
+import { getPaymentsSummaryByClientId } from "@/lib/paymentStore";
 import { StartOnboardingButton } from "./start-onboarding-button";
 import { LogoutButton } from "./logout-button";
 import { DownloadPaymentsCsvButton } from "./download-payments-csv-button";
@@ -60,14 +58,14 @@ export default async function DashboardPage({
   const isLive = process.env.STRIPE_MODE === "live";
   const baseUrl = getBaseUrl();
   const tipUrl = `${baseUrl}/tip/${clientId}`;
-  const showTestWarning = process.env.STRIPE_MODE === "test" && !isLocalhost(baseUrl);
+  const showTestWarning =
+    process.env.STRIPE_MODE === "test" && !isLocalhost(baseUrl);
 
   let stripeState: "active" | "other" = "other";
 
   if (client.payoutMode !== "direct") {
     stripeState = "active";
   } else if (client.stripe?.accountId) {
-    // LEGACY v1 client: Stripe already connected
     stripeState = "active";
   } else {
     stripeState = await getStripeState(clientId);
@@ -82,7 +80,9 @@ export default async function DashboardPage({
           <h1 className="text-2xl font-semibold">Dashboard</h1>
           <span
             className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-              isLive ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"
+              isLive
+                ? "bg-green-100 text-green-700"
+                : "bg-yellow-100 text-yellow-700"
             }`}
           >
             {isLive ? "LIVE" : "TEST"}
@@ -106,7 +106,27 @@ export default async function DashboardPage({
 
       <section className="border rounded-lg p-4 space-y-3">
         <h2 className="font-semibold">Public message</h2>
-        <form method="post" action="/api/client/profile" className="space-y-3">
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const form = e.currentTarget as HTMLFormElement;
+            const description = (form.elements.namedItem("description") as HTMLTextAreaElement)?.value;
+
+            const res = await fetch("/api/client/profile", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ description }),
+            });
+
+            if (!res.ok) {
+              alert("Failed to save message");
+            } else {
+              alert("Message saved");
+              window.location.reload();
+            }
+          }}
+          className="space-y-3"
+        >
           <textarea
             name="description"
             maxLength={200}
