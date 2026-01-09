@@ -105,6 +105,26 @@ export default async function DashboardPage({
       </section>
 
       <section className="border rounded-lg p-4 space-y-3">
+        <h2 className="font-semibold">Public message</h2>
+        <form method="post" action="/api/client/profile" className="space-y-3">
+          <textarea
+            name="description"
+            maxLength={200}
+            defaultValue={client.branding?.description ?? ""}
+            placeholder="Message shown to people who tip you"
+            className="w-full rounded-md border border-gray-700 bg-black px-3 py-2 text-sm"
+            rows={3}
+          />
+          <button
+            type="submit"
+            className="rounded-md border border-gray-700 px-3 py-2 text-sm font-medium hover:bg-gray-900"
+          >
+            Save message
+          </button>
+        </form>
+      </section>
+
+      <section className="border rounded-lg p-4 space-y-3">
         <h2 className="font-semibold">Tip link & QR</h2>
 
         {canShowTip ? (
