@@ -98,7 +98,16 @@ export async function updateClient(
     ...("payoutMode" in patch
       ? { payoutMode: patch.payoutMode ?? current.payoutMode }
       : {}),
-    ...("branding" in patch ? { branding: patch.branding } : {}),
+    
+...(patch.branding
+  ? {
+      branding: {
+        ...(current.branding ?? {}),
+        ...patch.branding,
+      },
+    }
+  : {}),
+
     createdAt: current.createdAt,
     dashboardToken: current.dashboardToken,
     ownerUserId: current.ownerUserId,
