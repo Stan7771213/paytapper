@@ -9,6 +9,7 @@ import { LogoutButton } from "./logout-button";
 import { DownloadPaymentsCsvButton } from "./download-payments-csv-button";
 import { PublicMessageForm } from "./public-message-form";
 import { DisplayNameForm } from "./display-name-form";
+import { AvatarForm } from "./avatar-form";
 
 type Params = { clientId: string };
 
@@ -111,6 +112,8 @@ export default async function DashboardPage({
           </p>
         )}
       </section>
+
+      <AvatarForm initialValue={client.branding?.avatarUrl} />
 
       <PublicMessageForm initialValue={client.branding?.description} />
 

@@ -19,13 +19,18 @@ export async function POST(req: NextRequest) {
     }
 
     const title =
-      typeof body.title === "string"
-        ? body.title.trim()
+      typeof (body as any).title === "string"
+        ? (body as any).title.trim()
         : undefined;
 
     const description =
-      typeof body.description === "string"
-        ? body.description.trim()
+      typeof (body as any).description === "string"
+        ? (body as any).description.trim()
+        : undefined;
+
+    const avatarUrl =
+      typeof (body as any).avatarUrl === "string"
+        ? (body as any).avatarUrl.trim()
         : undefined;
 
     if (title !== undefined && (title.length < 2 || title.length > 50)) {
@@ -42,7 +47,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (title === undefined && description === undefined) {
+    if (avatarUrl !== undefined) {
+      if (avatarUrl.length === 0) {
+        // allow clearing avatar
+      } else if (!avatarUrl.startsWith("https://")) {
+        return json(
+          { error: "Avatar URL must start with https://" },
+          400
+        );
+      } else if (avatarUrl.length > 500) {
+        return json({ error: "Avatar URL is too long" }, 400);
+      }
+    }
+
+    if (
+      title === undefined &&
+      description === undefined &&
+      avatarUrl === undefined
+    ) {
       return json({ error: "Nothing to update" }, 400);
     }
 
@@ -50,6 +72,9 @@ export async function POST(req: NextRequest) {
       branding: {
         ...(title !== undefined ? { title } : {}),
         ...(description !== undefined ? { description } : {}),
+        ...(avatarUrl !== undefined
+          ? { avatarUrl: avatarUrl || undefined }
+          : {}),
       },
     });
 
