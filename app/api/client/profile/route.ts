@@ -18,17 +18,24 @@ export async function POST(req: NextRequest) {
       return json({ error: "Invalid JSON body" }, 400);
     }
 
-    const displayName =
-      typeof body.displayName === "string"
-        ? body.displayName.trim()
+    const title =
+      typeof (body as any).title === "string"
+        ? (body as any).title.trim()
         : undefined;
 
     const description =
-      typeof body.description === "string"
-        ? body.description.trim()
+      typeof (body as any).description === "string"
+        ? (body as any).description.trim()
         : undefined;
 
-    if (description && description.length > 200) {
+    if (title !== undefined && (title.length < 2 || title.length > 50)) {
+      return json(
+        { error: "Title must be between 2 and 50 characters" },
+        400
+      );
+    }
+
+    if (description !== undefined && description.length > 200) {
       return json(
         { error: "Description must be 200 characters or less" },
         400
@@ -36,10 +43,12 @@ export async function POST(req: NextRequest) {
     }
 
     await updateClient(session.clientId, {
-      ...(displayName !== undefined ? { displayName } : {}),
       branding:
-        description !== undefined
-          ? { description }
+        title !== undefined || description !== undefined
+          ? {
+              ...(title !== undefined ? { title } : {}),
+              ...(description !== undefined ? { description } : {}),
+            }
           : undefined,
     });
 

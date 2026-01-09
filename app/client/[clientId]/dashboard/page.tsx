@@ -8,6 +8,7 @@ import { StartOnboardingButton } from "./start-onboarding-button";
 import { LogoutButton } from "./logout-button";
 import { DownloadPaymentsCsvButton } from "./download-payments-csv-button";
 import { PublicMessageForm } from "./public-message-form";
+import { DisplayNameForm } from "./display-name-form";
 
 type Params = { clientId: string };
 
@@ -103,11 +104,7 @@ export default async function DashboardPage({
         <p>
           <strong>Client ID:</strong> {clientId}
         </p>
-        {client.displayName && (
-          <p>
-            <strong>Name:</strong> {client.displayName}
-          </p>
-        )}
+        <DisplayNameForm initialValue={client.branding?.title} fallbackValue={client.displayName} />
         {client.email && (
           <p>
             <strong>Email:</strong> {client.email}
