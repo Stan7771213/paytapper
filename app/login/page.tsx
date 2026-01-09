@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -27,7 +28,7 @@ export default function LoginPage() {
         throw new Error(data?.error || 'Login failed');
       }
 
-      // ✅ Canonical redirect
+      // Canonical redirect
       window.location.assign('/post-auth');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
@@ -63,6 +64,15 @@ export default function LoginPage() {
           />
         </div>
 
+        <div className="flex justify-end">
+          <Link
+            href="/reset-password"
+            className="text-sm text-gray-400 hover:text-gray-200 underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
+
         {error && (
           <div className="rounded-md border border-red-700 bg-red-900/30 px-3 py-2 text-sm text-red-300">
             {error}
@@ -80,4 +90,3 @@ export default function LoginPage() {
     </div>
   );
 }
-

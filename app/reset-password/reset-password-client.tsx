@@ -9,10 +9,13 @@ export default function ResetPasswordClient() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [status, setStatus] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function requestReset(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
     setStatus('Sending reset email…');
 
     const res = await fetch('/api/auth/reset/request', {
@@ -26,6 +29,13 @@ export default function ResetPasswordClient() {
 
   async function confirmReset(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
     setStatus('Resetting password…');
 
     const res = await fetch('/api/auth/reset/confirm', {
@@ -34,7 +44,12 @@ export default function ResetPasswordClient() {
       body: JSON.stringify({ token, newPassword: password }),
     });
 
-    setStatus(res.ok ? 'Password updated. You can now log in.' : 'Invalid or expired token');
+    if (res.ok) {
+      setStatus('Password updated. You can now log in.');
+    } else {
+      setStatus(null);
+      setError('Invalid or expired token');
+    }
   }
 
   return (
@@ -50,7 +65,9 @@ export default function ResetPasswordClient() {
             onChange={(e) => setEmail(e.target.value)}
             required
           />
-          <button className="w-full border rounded px-3 py-2">Send reset link</button>
+          <button className="w-full border rounded px-3 py-2">
+            Send reset link
+          </button>
         </form>
       ) : (
         <form onSubmit={confirmReset} className="space-y-3">
@@ -62,11 +79,26 @@ export default function ResetPasswordClient() {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
-          <button className="w-full border rounded px-3 py-2">Set new password</button>
+          <input
+            className="w-full border rounded px-3 py-2"
+            type="password"
+            placeholder="Confirm new password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            required
+          />
+          <button className="w-full border rounded px-3 py-2">
+            Set new password
+          </button>
         </form>
       )}
 
-      {status && <p className="text-sm text-gray-600">{status}</p>}
+      {error && (
+        <p className="text-sm text-red-600">{error}</p>
+      )}
+      {status && (
+        <p className="text-sm text-gray-600">{status}</p>
+      )}
     </main>
   );
 }
