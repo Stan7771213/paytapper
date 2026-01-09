@@ -10,7 +10,8 @@ export async function getAllClients(): Promise<Client[]> {
 
 export async function getClientByEmail(email: string): Promise<Client | null> {
   const clients = await getAllClients();
-  return clients.find((c) => c.email?.toLowerCase() === email.toLowerCase()) ?? null;
+  const target = email.toLowerCase();
+  return clients.find((c) => c.email?.toLowerCase() === target) ?? null;
 }
 
 export async function getClientById(clientId: string): Promise<Client | null> {
@@ -18,7 +19,9 @@ export async function getClientById(clientId: string): Promise<Client | null> {
   return clients.find((c) => c.id === clientId) ?? null;
 }
 
-export async function getClientByOwnerUserId(userId: string): Promise<Client | null> {
+export async function getClientByOwnerUserId(
+  userId: string
+): Promise<Client | null> {
   const clients = await getAllClients();
   return clients.find((c) => c.ownerUserId === userId) ?? null;
 }
@@ -48,35 +51,43 @@ export async function createClient(
   return client;
 }
 
+type UpdateClientPatch = {
+  displayName?: string;
+  email?: string;
+  isActive?: boolean;
+  payoutMode?: Client["payoutMode"];
+
+  stripe?: { accountId?: string };
+
+  // IMPORTANT: this is a PARTIAL patch; we merge into existing branding
+  branding?: Client["branding"];
+
+  emailEvents?: {
+    welcomeSentAt?: string;
+    stripeConnectedSentAt?: string;
+  };
+
+  passwordHash?: string;
+  passwordReset?: {
+    tokenHash: string;
+    expiresAt: string;
+  };
+};
+
 /**
  * Update a client deterministically.
  *
  * Rules:
  * - createdAt must never be overwritten
+ * - ownerUserId must never be overwritten
+ * - dashboardToken must NEVER be changed
  * - stripe.accountId must never be overwritten once set
  * - emailEvents timestamps are set-once (idempotent)
- * - dashboardToken must NEVER be changed
+ * - branding must be MERGED (partial patch), never overwritten as a whole
  */
 export async function updateClient(
   clientId: string,
-  patch: {
-    displayName?: string;
-    email?: string;
-    isActive?: boolean;
-    payoutMode?: Client["payoutMode"];
-    stripe?: { accountId?: string };
-    branding?: Client["branding"];
-    emailEvents?: {
-      welcomeSentAt?: string;
-      stripeConnectedSentAt?: string;
-    };
-
-    passwordHash?: string;
-    passwordReset?: {
-      tokenHash: string;
-      expiresAt: string;
-    };
-  }
+  patch: UpdateClientPatch
 ): Promise<Client> {
   const clients = await getAllClients();
   const idx = clients.findIndex((c) => c.id === clientId);
@@ -86,8 +97,11 @@ export async function updateClient(
 
   const current = clients[idx];
 
+  // Start from current
   const next: Client = {
     ...current,
+
+    // scalar fields (only if key present)
     ...("displayName" in patch
       ? { displayName: patch.displayName ?? current.displayName }
       : {}),
@@ -98,23 +112,33 @@ export async function updateClient(
     ...("payoutMode" in patch
       ? { payoutMode: patch.payoutMode ?? current.payoutMode }
       : {}),
-    
-...(patch.branding
-  ? {
-      branding: {
-        ...(current.branding ?? {}),
-        ...patch.branding,
-      },
-    }
-  : {}),
 
+    // immutable fields
     createdAt: current.createdAt,
     dashboardToken: current.dashboardToken,
     ownerUserId: current.ownerUserId,
 
-    ...(patch.passwordHash !== undefined ? { passwordHash: patch.passwordHash } : {}),
-    ...(patch.passwordReset !== undefined ? { passwordReset: patch.passwordReset } : {}),
+    // auth fields (explicit undefined means "clear" only if we pass it)
+    ...(patch.passwordHash !== undefined
+      ? { passwordHash: patch.passwordHash }
+      : {}),
+    ...(patch.passwordReset !== undefined
+      ? { passwordReset: patch.passwordReset }
+      : {}),
   };
+
+  // Branding: MERGE partial patch into existing
+  if ("branding" in patch) {
+    if (patch.branding === undefined) {
+      // explicit undefined => clear branding
+      next.branding = undefined;
+    } else {
+      next.branding = {
+        ...(current.branding ?? {}),
+        ...patch.branding,
+      };
+    }
+  }
 
   // Stripe accountId: set once, never overwrite
   const incomingAccountId = patch.stripe?.accountId?.trim();
@@ -141,10 +165,7 @@ export async function updateClient(
         : {}),
       ...(patch.emailEvents.stripeConnectedSentAt &&
       !current.emailEvents?.stripeConnectedSentAt
-        ? {
-            stripeConnectedSentAt:
-              patch.emailEvents.stripeConnectedSentAt,
-          }
+        ? { stripeConnectedSentAt: patch.emailEvents.stripeConnectedSentAt }
         : {}),
     };
   }
