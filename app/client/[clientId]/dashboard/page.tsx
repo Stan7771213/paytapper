@@ -7,6 +7,7 @@ import { getPaymentsSummaryByClientId } from "@/lib/paymentStore";
 import { StartOnboardingButton } from "./start-onboarding-button";
 import { LogoutButton } from "./logout-button";
 import { DownloadPaymentsCsvButton } from "./download-payments-csv-button";
+import { PublicMessageForm } from "./public-message-form";
 
 type Params = { clientId: string };
 
@@ -99,50 +100,22 @@ export default async function DashboardPage({
 
       <section className="border rounded-lg p-4 space-y-2">
         <h2 className="font-semibold">Client info</h2>
-        <p><strong>Client ID:</strong> {clientId}</p>
-        {client.displayName && <p><strong>Name:</strong> {client.displayName}</p>}
-        {client.email && <p><strong>Email:</strong> {client.email}</p>}
+        <p>
+          <strong>Client ID:</strong> {clientId}
+        </p>
+        {client.displayName && (
+          <p>
+            <strong>Name:</strong> {client.displayName}
+          </p>
+        )}
+        {client.email && (
+          <p>
+            <strong>Email:</strong> {client.email}
+          </p>
+        )}
       </section>
 
-      <section className="border rounded-lg p-4 space-y-3">
-        <h2 className="font-semibold">Public message</h2>
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            const form = e.currentTarget as HTMLFormElement;
-            const description = (form.elements.namedItem("description") as HTMLTextAreaElement)?.value;
-
-            const res = await fetch("/api/client/profile", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ description }),
-            });
-
-            if (!res.ok) {
-              alert("Failed to save message");
-            } else {
-              alert("Message saved");
-              window.location.reload();
-            }
-          }}
-          className="space-y-3"
-        >
-          <textarea
-            name="description"
-            maxLength={200}
-            defaultValue={client.branding?.description ?? ""}
-            placeholder="Message shown to people who tip you"
-            className="w-full rounded-md border border-gray-700 bg-black px-3 py-2 text-sm"
-            rows={3}
-          />
-          <button
-            type="submit"
-            className="rounded-md border border-gray-700 px-3 py-2 text-sm font-medium hover:bg-gray-900"
-          >
-            Save message
-          </button>
-        </form>
-      </section>
+      <PublicMessageForm initialValue={client.branding?.description} />
 
       <section className="border rounded-lg p-4 space-y-3">
         <h2 className="font-semibold">Tip link & QR</h2>
@@ -150,7 +123,8 @@ export default async function DashboardPage({
         {canShowTip ? (
           <>
             <p className="text-sm break-all">
-              <strong>Tip link:</strong><br />
+              <strong>Tip link:</strong>
+              <br />
               <a
                 href={tipUrl}
                 target="_blank"
@@ -180,7 +154,9 @@ export default async function DashboardPage({
 
       <section className="border rounded-lg p-4 space-y-3">
         <h2 className="font-semibold">Payments</h2>
-        <p><strong>Total received:</strong> {formatEur(summary.totalNetCents)} €</p>
+        <p>
+          <strong>Total received:</strong> {formatEur(summary.totalNetCents)} €
+        </p>
         <DownloadPaymentsCsvButton clientId={clientId} />
       </section>
     </main>
