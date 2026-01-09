@@ -647,3 +647,27 @@ Authentication is a **mandatory part of the product** starting from v1.1.
 
 This section supersedes the previous v1 cookie-only session behavior.
 
+
+---
+
+## SSR Propagation Notes (v1)
+
+In Paytapper v1, the application relies on server-side rendering (SSR) without
+client-side revalidation, global state, or database-backed queries.
+
+As a result:
+
+- Updates to public profile fields (`branding.title`, `branding.description`)
+  are persisted immediately and reliably in storage.
+- Server-rendered pages (e.g. `/tip/{clientId}`) may temporarily display
+  previously rendered snapshots due to edge caching and SSR propagation delays.
+- A short delay (seconds) between updating data in the dashboard and seeing
+  the updated values on other SSR pages is **expected behavior**.
+- Such delays do **not** indicate data loss, failed persistence, or inconsistent state.
+
+This behavior is acceptable and intentional for v1.
+
+Future versions may introduce explicit revalidation or client-side data fetching
+to provide immediate cross-page consistency, but this is intentionally deferred
+to preserve architectural simplicity and stability in v1.
+
