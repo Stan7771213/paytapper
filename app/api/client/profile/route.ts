@@ -9,7 +9,7 @@ function json(data: unknown, status = 200) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getSession();
-    if (!session) {
+    if (!session?.clientId) {
       return json({ error: "Unauthorized" }, 401);
     }
 
@@ -19,13 +19,13 @@ export async function POST(req: NextRequest) {
     }
 
     const title =
-      typeof (body as any).title === "string"
-        ? (body as any).title.trim()
+      typeof body.title === "string"
+        ? body.title.trim()
         : undefined;
 
     const description =
-      typeof (body as any).description === "string"
-        ? (body as any).description.trim()
+      typeof body.description === "string"
+        ? body.description.trim()
         : undefined;
 
     if (title !== undefined && (title.length < 2 || title.length > 50)) {
@@ -42,14 +42,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (title === undefined && description === undefined) {
+      return json({ error: "Nothing to update" }, 400);
+    }
+
     await updateClient(session.clientId, {
-      branding:
-        title !== undefined || description !== undefined
-          ? {
-              ...(title !== undefined ? { title } : {}),
-              ...(description !== undefined ? { description } : {}),
-            }
-          : undefined,
+      branding: {
+        ...(title !== undefined ? { title } : {}),
+        ...(description !== undefined ? { description } : {}),
+      },
     });
 
     return json({ ok: true });
