@@ -4,7 +4,9 @@ import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth/sessions";
 import { getClientById } from "@/lib/clientStore";
 import { getPaymentsSummaryByClientId } from "@/lib/paymentStore";
+
 import { StartOnboardingButton } from "./start-onboarding-button";
+import { OpenStripeDashboardButton } from "./open-stripe-dashboard-button";
 import { LogoutButton } from "./logout-button";
 import { DownloadPaymentsCsvButton } from "./download-payments-csv-button";
 import { PublicMessageForm } from "./public-message-form";
@@ -20,10 +22,12 @@ function formatEur(cents: number): string {
 function getBaseUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_BASE_URL;
   if (explicit && explicit.trim()) return explicit.trim();
+
   const vercelUrl = process.env.VERCEL_URL;
   if (vercelUrl && vercelUrl.trim()) {
     return vercelUrl.startsWith("http") ? vercelUrl : `https://${vercelUrl}`;
   }
+
   return "http://localhost:3000";
 }
 
@@ -36,6 +40,7 @@ async function getStripeState(clientId: string): Promise<"active" | "other"> {
     `${getBaseUrl()}/api/connect/status?clientId=${encodeURIComponent(clientId)}`,
     { cache: "no-store" }
   );
+
   if (!res.ok) return "other";
   const data = await res.json();
   return data.state === "active" ? "active" : "other";
@@ -49,19 +54,14 @@ export default async function DashboardPage({
   const { clientId } = await params;
 
   const session = await getSession();
-
-  if (!session) {
-    redirect("/login");
-  }
+  if (!session) redirect("/login");
 
   if (session.clientId !== clientId) {
     redirect(`/client/${session.clientId}/dashboard`);
   }
 
   const client = await getClientById(clientId);
-  if (!client) {
-    redirect("/login");
-  }
+  if (!client) redirect("/login");
 
   const summary = await getPaymentsSummaryByClientId(clientId);
 
@@ -109,9 +109,6 @@ export default async function DashboardPage({
 
       <section className="border rounded-lg p-4 space-y-2">
         <h2 className="font-semibold">Client info</h2>
-        <p>
-          <strong>Client ID:</strong> {clientId}
-        </p>
         <DisplayNameForm
           initialValue={client.branding?.title}
           fallbackValue={client.displayName}
@@ -159,7 +156,30 @@ export default async function DashboardPage({
 
       <section className="border rounded-lg p-4 space-y-3">
         <h2 className="font-semibold">Stripe</h2>
-        <StartOnboardingButton clientId={clientId} />
+
+        {stripeState === "active" ? (
+          <>
+            <p className="text-sm text-gray-500">
+              Payments go directly to your Stripe account.
+              Stripe may temporarily hold first payouts (usually up to 7 days).
+            </p>
+
+            <OpenStripeDashboardButton clientId={clientId} />
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-gray-500">
+              Connect Stripe to start accepting payments.
+            </p>
+
+            <StartOnboardingButton clientId={clientId} />
+
+            <p className="text-xs text-gray-500">
+              Stripe requires a website. If you don’t have one,
+              use https://paytapper.net
+            </p>
+          </>
+        )}
       </section>
 
       <section className="border rounded-lg p-4 space-y-3">
