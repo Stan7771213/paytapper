@@ -13,6 +13,7 @@ import { DownloadPaymentsCsvButton } from "./download-payments-csv-button";
 import { PublicMessageForm } from "./public-message-form";
 import { DisplayNameForm } from "./display-name-form";
 import { AvatarForm } from "./avatar-form";
+import { ShareQrTools } from "./share-qr";
 
 type Params = { clientId: string };
 
@@ -147,6 +148,8 @@ export default async function DashboardPage({
               alt="Tip QR"
               className="w-40 h-40 border rounded"
             />
+
+            <ShareQrTools tipUrl={tipUrl} />
           </>
         ) : (
           <p className="text-sm text-gray-500">
