@@ -248,8 +248,12 @@ export async function sendWelcomeEmail(input: {
   clientId: string;
   tipUrl: string;
   dashboardUrl: string;
-}): Promise<void> {
-  console.log("[email stub] welcome", input);
+}): Promise<never> {
+  console.error("[email] sendWelcomeEmail called (deprecated)", {
+    clientId: input.clientId,
+    email: input.email,
+  });
+  throw new Error("sendWelcomeEmail is deprecated. Use sendClientWelcomeEmail instead.");
 }
 
 /**
