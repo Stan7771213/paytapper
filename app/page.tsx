@@ -23,7 +23,7 @@ export default async function HomePage() {
         </p>
 
         <p className="mt-2 text-sm text-gray-400">
-          Paytapper never holds your money.
+          Paytapper never holds your money. Fee: <span className="font-semibold">10%</span>.
         </p>
 
         <div className="mt-10 flex justify-center gap-4">
@@ -74,6 +74,67 @@ export default async function HomePage() {
           <li>Connect Stripe and share your personal QR</li>
           <li>Get paid directly to your Stripe account</li>
         </ol>
+      </section>
+
+      <section className="mt-24">
+        <div className="text-center">
+          <h2 className="text-3xl font-semibold">FAQ</h2>
+          <p className="mt-4 text-lg text-gray-500">
+            Quick answers to the most common questions.
+          </p>
+        </div>
+
+        <div className="mt-10 grid gap-6 md:grid-cols-2">
+          <div className="rounded-2xl border border-gray-800 bg-black p-6">
+            <h3 className="text-lg font-semibold text-white">
+              Where does the money go?
+            </h3>
+            <p className="mt-3 text-gray-400">
+              Payments go directly to your connected Stripe account. Paytapper
+              doesn’t hold your funds.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-gray-800 bg-black p-6">
+            <h3 className="text-lg font-semibold text-white">
+              When do I get paid?
+            </h3>
+            <p className="mt-3 text-gray-400">
+              Payout timing depends on Stripe and your payout schedule. First
+              payouts can be temporarily delayed by Stripe.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-gray-800 bg-black p-6">
+            <h3 className="text-lg font-semibold text-white">
+              Why do you ask for a website?
+            </h3>
+            <p className="mt-3 text-gray-400">
+              Stripe requires a “Website” field during onboarding. If you don’t
+              have one, you can use <span className="font-semibold">https://paytapper.net</span>.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-gray-800 bg-black p-6">
+            <h3 className="text-lg font-semibold text-white">
+              What’s the Paytapper fee?
+            </h3>
+            <p className="mt-3 text-gray-400">
+              Paytapper charges <span className="font-semibold">10%</span> per successful payment.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-gray-800 bg-black p-6 md:col-span-2">
+            <h3 className="text-lg font-semibold text-white">
+              Do I need to connect Stripe again?
+            </h3>
+            <p className="mt-3 text-gray-400">
+              No. If Stripe is already connected, you’re ready to accept payments.
+              You only need to open Stripe if you want to change details like your{" "}
+              <span className="font-semibold">bank account</span>, payout settings, or verification.
+            </p>
+          </div>
+        </div>
       </section>
     </main>
   );
