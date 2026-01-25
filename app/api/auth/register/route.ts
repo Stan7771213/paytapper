@@ -5,22 +5,37 @@ import crypto from "node:crypto";
 import { createUser, getUserByEmail } from "@/lib/userStore";
 import { createClient } from "@/lib/clientStore";
 import { createSession } from "@/lib/auth/sessions";
-import { sendWelcomeEmail } from "@/lib/email";
+import { sendClientWelcomeEmail } from "@/lib/email";
 
 function json(data: unknown, status = 200) {
   return NextResponse.json(data, { status });
 }
 
+function getBaseUrl(): string {
+  const explicit = process.env.NEXT_PUBLIC_BASE_URL;
+  if (explicit && explicit.trim()) return explicit.trim().replace(/\/+$/, "");
+
+  const vercelUrl = process.env.VERCEL_URL;
+  if (vercelUrl && vercelUrl.trim()) {
+    const v = vercelUrl.trim().replace(/\/+$/, "");
+    return v.startsWith("http") ? v : `https://${v}`;
+  }
+
+  return "http://localhost:3000";
+}
+
+function getMessageId(data: unknown): string | null {
+  if (!data || typeof data !== "object") return null;
+  if (!("id" in data)) return null;
+  const id = (data as { id?: unknown }).id;
+  return typeof id === "string" && id.trim() ? id : null;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const {
-      displayName,
-      email,
-      password,
-      passwordConfirm,
-      payoutMode,
-    } = body ?? {};
+    const { displayName, email, password, passwordConfirm, payoutMode } =
+      body ?? {};
 
     // ---- Validation ----
     if (
@@ -66,15 +81,34 @@ export async function POST(req: NextRequest) {
     // ---- Create session (by clientId, v1.1) ----
     await createSession(client.id);
 
-    // ---- Welcome email ----
-    await sendWelcomeEmail({
+    // ---- Welcome email (best-effort; never blocks registration) ----
+    const baseUrl = getBaseUrl();
+    const tipUrl = `${baseUrl}/tip/${encodeURIComponent(client.id)}`;
+
+    const emailRes = await sendClientWelcomeEmail({
       email: normalizedEmail,
       clientId: client.id,
-      tipUrl: `/tip/${client.id}`,
-      dashboardUrl: `/client/${client.id}/dashboard`,
+      tipUrl,
+      payoutMode: client.payoutMode,
     });
 
-    return json({ ok: true });
+    if (!emailRes.success) {
+      console.warn("[register] welcome email not sent", emailRes);
+    } else {
+      console.log("[register] welcome email sent", emailRes);
+    }
+
+    const messageId = emailRes.success ? getMessageId(emailRes.data) : null;
+
+    return json({
+      ok: true,
+      email: {
+        sent: emailRes.success,
+        mode: emailRes.mode,
+        message: emailRes.message,
+        messageId,
+      },
+    });
   } catch (err) {
     console.error("[register]", err);
     return json({ error: "Internal error" }, 500);
