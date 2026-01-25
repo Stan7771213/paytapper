@@ -7,6 +7,7 @@ import { getPaymentsSummaryByClientId } from "@/lib/paymentStore";
 
 import { StartOnboardingButton } from "./start-onboarding-button";
 import { OpenStripeDashboardButton } from "./open-stripe-dashboard-button";
+import { StripeDashboardHelperCollapsed, StripeHelperCollapsed } from "./stripe-helper";
 import { LogoutButton } from "./logout-button";
 import { DownloadPaymentsCsvButton } from "./download-payments-csv-button";
 import { PublicMessageForm } from "./public-message-form";
@@ -164,6 +165,8 @@ export default async function DashboardPage({
               Stripe may temporarily hold first payouts (usually up to 7 days).
             </p>
 
+            <StripeDashboardHelperCollapsed />
+
             <OpenStripeDashboardButton clientId={clientId} />
           </>
         ) : (
@@ -174,10 +177,7 @@ export default async function DashboardPage({
 
             <StartOnboardingButton clientId={clientId} />
 
-            <p className="text-xs text-gray-500">
-              Stripe requires a website. If you don’t have one,
-              use https://paytapper.net
-            </p>
+            <StripeHelperCollapsed />
           </>
         )}
       </section>
