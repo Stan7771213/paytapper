@@ -2,14 +2,41 @@
 
 import { useState } from "react";
 
+type RegisterOk = {
+  ok: true;
+  email?: {
+    sent: boolean;
+    mode?: string;
+    message?: string;
+    messageId?: string | null;
+  };
+};
+
+type RegisterErr = { error: string };
+
+type RegisterResponse = RegisterOk | RegisterErr;
+
+function isRegisterOk(x: RegisterResponse): x is RegisterOk {
+  return "ok" in x && x.ok === true;
+}
+
 export default function RegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [emailStatus, setEmailStatus] = useState<{
+    sent: boolean;
+    message?: string;
+  } | null>(null);
+
+  const [canContinue, setCanContinue] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setIsSubmitting(true);
     setError(null);
+    setEmailStatus(null);
+    setCanContinue(false);
 
     const formData = new FormData(e.currentTarget);
 
@@ -38,16 +65,45 @@ export default function RegisterPage() {
           displayName,
           email,
           password,
-          passwordConfirm: confirmPassword, // 🔴 ВАЖНО
+          passwordConfirm: confirmPassword, // IMPORTANT: backend expects passwordConfirm
         }),
       });
 
+      const data = (await r.json().catch(() => ({}))) as RegisterResponse;
+
       if (!r.ok) {
-        const data = await r.json().catch(() => ({}));
-        throw new Error(data?.error || "Registration failed");
+        const msg =
+          "error" in data && typeof data.error === "string"
+            ? data.error
+            : "Registration failed";
+        throw new Error(msg);
       }
 
-      window.location.href = "/post-auth";
+      if (!isRegisterOk(data)) {
+        setEmailStatus({
+          sent: false,
+          message: "Registration succeeded, but response was unexpected.",
+        });
+        setCanContinue(true);
+        return;
+      }
+
+      const emailRes = data.email;
+
+      if (emailRes) {
+        setEmailStatus({
+          sent: emailRes.sent,
+          message: emailRes.message,
+        });
+      } else {
+        // Backward compatible: if API doesn't return email status for some reason
+        setEmailStatus({
+          sent: true,
+          message: "Account created successfully.",
+        });
+      }
+
+      setCanContinue(true);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Unknown error";
       setError(msg);
@@ -93,12 +149,48 @@ export default function RegisterPage() {
 
         {error && <div className="text-sm text-red-600">{error}</div>}
 
+        {emailStatus && (
+          <div
+            className={`rounded-md border px-3 py-2 text-sm ${
+              emailStatus.sent
+                ? "border-green-300 bg-green-50 text-green-800"
+                : "border-amber-300 bg-amber-50 text-amber-900"
+            }`}
+          >
+            {emailStatus.sent ? (
+              <div>
+                <div className="font-medium">Welcome email sent.</div>
+                <div className="mt-1 opacity-80">
+                  Please check your inbox (and Promotions/Spam).
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div className="font-medium">We couldn’t send the welcome email.</div>
+                <div className="mt-1 opacity-80">
+                  {emailStatus.message ||
+                    "Please double-check your email address and try again."}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <button
           type="submit"
           disabled={isSubmitting}
           className="w-full rounded-md border border-gray-700 px-3 py-2 text-sm font-medium hover:bg-gray-900 hover:text-white disabled:opacity-50"
         >
           {isSubmitting ? "Creating..." : "Create account"}
+        </button>
+
+        <button
+          type="button"
+          disabled={!canContinue}
+          onClick={() => (window.location.href = "/post-auth")}
+          className="w-full rounded-md bg-black px-3 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-40"
+        >
+          Continue to dashboard
         </button>
       </form>
     </main>
