@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 
 import { getUserByEmail } from "@/lib/userStore";
-import { getClientByOwnerUserId } from "@/lib/clientStore";
+import { getClientByOwnerUserId, createClient } from "@/lib/clientStore";
 import { createSession } from "@/lib/auth/sessions";
 
 function json(data: unknown, status = 200) {
@@ -14,11 +14,13 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { email, password } = body ?? {};
 
-    if (!email || !password) {
+    if (!email || typeof email !== "string" || !password || typeof password !== "string") {
       return json({ error: "Invalid credentials" }, 401);
     }
 
-    const user = await getUserByEmail(email);
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const user = await getUserByEmail(normalizedEmail);
     if (!user || !user.passwordHash) {
       return json({ error: "Invalid credentials" }, 401);
     }
@@ -28,9 +30,21 @@ export async function POST(req: NextRequest) {
       return json({ error: "Invalid credentials" }, 401);
     }
 
-    const client = await getClientByOwnerUserId(user.id);
+    let client = await getClientByOwnerUserId(user.id);
+
+    // Self-heal: if an orphan user exists without a client, create the missing client once.
     if (!client) {
-      return json({ error: "Client not found for user" }, 500);
+      console.warn("[login] client missing for user, creating one", {
+        userId: user.id,
+        email: user.email,
+      });
+
+      client = await createClient({
+        ownerUserId: user.id,
+        displayName: user.email,
+        email: user.email,
+        payoutMode: "direct",
+      });
     }
 
     await createSession(client.id);
