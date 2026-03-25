@@ -173,8 +173,8 @@ export async function POST(req: NextRequest) {
           quantity: payableGuests,
         },
       ],
-      success_url: `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/tours/${product.slug}`,
+      success_url: `${baseUrl}/tours/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/tours/cancel`,
       payment_intent_data: {
         metadata: {
           paymentDomain: "tours",
