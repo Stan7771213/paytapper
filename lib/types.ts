@@ -95,3 +95,42 @@ export type NewPayment = {
   amountCents: number;
   currency: Currency;
 };
+
+// ---------- Tour Bookings ----------
+export type TourBookingStatus = "paid";
+
+export type TourBooking = {
+  id: string;
+
+  productId: string;
+  productTitle: string;
+
+  date: string;
+  time: string;
+
+  adults: number;
+  children: number;
+  freeChildren: number;
+  extraPaidChildren: number;
+  payableGuests: number;
+  totalGuests: number;
+
+  amountCents: number;
+  currency: Currency;
+
+  status: TourBookingStatus;
+
+  customer: {
+    name: string;
+    email: string;
+    phone: string;
+  };
+
+  stripe: {
+    paymentIntentId: string;
+    checkoutSessionId: string;
+  };
+
+  createdAt: string;
+  paidAt: string;
+};

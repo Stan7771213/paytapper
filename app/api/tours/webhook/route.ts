@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
 import { toursStripe } from "@/lib/tours/stripe";
+import { getTourProductById } from "@/lib/tours/config";
+import { upsertTourBookingByPaymentIntentId } from "@/lib/tours/bookingStore";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -14,6 +16,28 @@ function requireEnv(name: string): string {
 const toursWebhookSecret = requireEnv("TOURS_STRIPE_WEBHOOK_SECRET_TEST");
 
 export const runtime = "nodejs";
+
+async function resolveCheckoutSession(
+  paymentIntentId: string
+): Promise<Stripe.Checkout.Session> {
+  const sessions = await toursStripe.checkout.sessions.list({
+    payment_intent: paymentIntentId,
+    limit: 1,
+  });
+
+  const session = sessions.data[0];
+  if (!session?.id) {
+    throw new Error(
+      "Unable to resolve checkout session for paymentIntentId=" + paymentIntentId
+    );
+  }
+  return session;
+}
+
+function toInt(value: string | undefined): number {
+  const n = Number(value ?? "");
+  return Number.isFinite(n) ? Math.trunc(n) : 0;
+}
 
 export async function POST(req: Request) {
   const signature = req.headers.get("stripe-signature");
@@ -50,30 +74,68 @@ export async function POST(req: Request) {
     return NextResponse.json({ received: true, skipped: true });
   }
 
-  const payload = {
-    paymentIntentId: intent.id,
-    amountReceived: intent.amount_received ?? intent.amount ?? 0,
-    currency: intent.currency ?? "eur",
-    status: intent.status,
-    metadata: {
-      paymentDomain,
-      tourProductId: metadata.tourProductId ?? "",
-      tourDate: metadata.tourDate ?? "",
-      tourTime: metadata.tourTime ?? "",
-      customerName: metadata.customerName ?? "",
-      customerEmail: metadata.customerEmail ?? "",
-      customerPhone: metadata.customerPhone ?? "",
-      adults: metadata.adults ?? "",
-      children: metadata.children ?? "",
-      freeChildren: metadata.freeChildren ?? "",
-      extraPaidChildren: metadata.extraPaidChildren ?? "",
-      payableGuests: metadata.payableGuests ?? "",
-      totalGuests: metadata.totalGuests ?? "",
+  let session: Stripe.Checkout.Session;
+  try {
+    session = await resolveCheckoutSession(intent.id);
+  } catch (error) {
+    console.error("❌ Failed to resolve tours checkout session", error);
+    return new NextResponse("checkoutSession not found", { status: 500 });
+  }
+
+  const productId = metadata.tourProductId ?? "";
+  const product = getTourProductById(productId);
+
+  if (!product) {
+    console.error("❌ Unknown tour product in webhook metadata:", productId);
+    return new NextResponse("Unknown tour product", { status: 400 });
+  }
+
+  const bookingPayload = {
+    productId: product.id,
+    productTitle: product.title,
+    date: metadata.tourDate ?? "",
+    time: metadata.tourTime ?? "",
+    adults: toInt(metadata.adults),
+    children: toInt(metadata.children),
+    freeChildren: toInt(metadata.freeChildren),
+    extraPaidChildren: toInt(metadata.extraPaidChildren),
+    payableGuests: toInt(metadata.payableGuests),
+    totalGuests: toInt(metadata.totalGuests),
+    amountCents: intent.amount_received ?? intent.amount ?? 0,
+    currency: "eur" as const,
+    status: "paid" as const,
+    customer: {
+      name: metadata.customerName ?? "",
+      email: metadata.customerEmail ?? "",
+      phone: metadata.customerPhone ?? "",
     },
-    receivedAt: new Date().toISOString(),
+    stripe: {
+      paymentIntentId: intent.id,
+      checkoutSessionId: session.id,
+    },
+    paidAt: new Date().toISOString(),
   };
 
-  console.log("✅ TOURS_PAYMENT_CONFIRMED", JSON.stringify(payload));
+  try {
+    await upsertTourBookingByPaymentIntentId(intent.id, bookingPayload);
+  } catch (error) {
+    console.error("❌ Failed to store tour booking", error);
+    return new NextResponse("Failed to store tour booking", { status: 500 });
+  }
 
-  return NextResponse.json({ received: true, toursPaymentConfirmed: true });
+  console.log(
+    "✅ TOURS_BOOKING_STORED",
+    JSON.stringify({
+      paymentIntentId: intent.id,
+      checkoutSessionId: session.id,
+      productId: bookingPayload.productId,
+      date: bookingPayload.date,
+      time: bookingPayload.time,
+      totalGuests: bookingPayload.totalGuests,
+      amountCents: bookingPayload.amountCents,
+      customerEmail: bookingPayload.customer.email,
+    })
+  );
+
+  return NextResponse.json({ received: true, toursBookingStored: true });
 }
