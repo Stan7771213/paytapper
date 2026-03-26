@@ -4,6 +4,8 @@ import Stripe from "stripe";
 import { toursStripe } from "@/lib/tours/stripe";
 import { getTourProductById } from "@/lib/tours/config";
 import { upsertTourBookingByPaymentIntentId } from "@/lib/tours/bookingStore";
+import { sendTourBookingEmails } from "@/lib/tours/email";
+import type { TourBooking } from "@/lib/types";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -121,6 +123,32 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error("❌ Failed to store tour booking", error);
     return new NextResponse("Failed to store tour booking", { status: 500 });
+  }
+
+  const bookingForEmail: TourBooking = {
+    id: intent.id,
+    createdAt: new Date().toISOString(),
+    ...bookingPayload,
+  };
+
+  const emailResult = await sendTourBookingEmails(bookingForEmail);
+
+  if (emailResult.success) {
+    console.log(
+      "✅ TOURS_BOOKING_EMAILS_SENT",
+      JSON.stringify({
+        paymentIntentId: intent.id,
+        customerEmail: bookingPayload.customer.email,
+      })
+    );
+  } else {
+    console.error(
+      "❌ TOURS_BOOKING_EMAILS_FAILED",
+      JSON.stringify({
+        paymentIntentId: intent.id,
+        message: emailResult.message,
+      })
+    );
   }
 
   console.log(
