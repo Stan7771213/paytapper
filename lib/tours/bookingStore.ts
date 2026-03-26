@@ -27,10 +27,21 @@ type TourBookingUpsertInput = {
     checkoutSessionId: string;
   };
   paidAt: string;
+  confirmationEmailsSentAt?: string;
 };
 
 export async function getAllTourBookings(): Promise<TourBooking[]> {
   return readJsonArray<TourBooking>(TOUR_BOOKINGS_PATH);
+}
+
+export async function getTourBookingByPaymentIntentId(
+  paymentIntentId: string
+): Promise<TourBooking | null> {
+  const bookings = await getAllTourBookings();
+  return (
+    bookings.find((booking) => booking.stripe.paymentIntentId === paymentIntentId) ??
+    null
+  );
 }
 
 export async function upsertTourBookingByPaymentIntentId(
@@ -59,6 +70,8 @@ export async function upsertTourBookingByPaymentIntentId(
       id: existing.id,
       createdAt: existing.createdAt,
       paidAt: existing.paidAt ?? input.paidAt,
+      confirmationEmailsSentAt:
+        existing.confirmationEmailsSentAt ?? input.confirmationEmailsSentAt,
     };
   } else {
     bookings.push({
@@ -67,6 +80,32 @@ export async function upsertTourBookingByPaymentIntentId(
       ...input,
     });
   }
+
+  await writeJsonArray(TOUR_BOOKINGS_PATH, bookings);
+}
+
+export async function markTourBookingConfirmationEmailsSent(
+  paymentIntentId: string,
+  sentAt: string
+): Promise<void> {
+  const bookings = await getAllTourBookings();
+  const idx = bookings.findIndex(
+    (booking) => booking.stripe.paymentIntentId === paymentIntentId
+  );
+
+  if (idx < 0) {
+    throw new Error("Tour booking not found for paymentIntentId=" + paymentIntentId);
+  }
+
+  const existing = bookings[idx];
+  if (existing.confirmationEmailsSentAt) {
+    return;
+  }
+
+  bookings[idx] = {
+    ...existing,
+    confirmationEmailsSentAt: sentAt,
+  };
 
   await writeJsonArray(TOUR_BOOKINGS_PATH, bookings);
 }

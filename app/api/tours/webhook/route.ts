@@ -3,7 +3,11 @@ import Stripe from "stripe";
 
 import { toursStripe } from "@/lib/tours/stripe";
 import { getTourProductById } from "@/lib/tours/config";
-import { upsertTourBookingByPaymentIntentId } from "@/lib/tours/bookingStore";
+import {
+  getTourBookingByPaymentIntentId,
+  markTourBookingConfirmationEmailsSent,
+  upsertTourBookingByPaymentIntentId,
+} from "@/lib/tours/bookingStore";
 import { sendTourBookingEmails } from "@/lib/tours/email";
 import type { TourBooking } from "@/lib/types";
 
@@ -92,6 +96,8 @@ export async function POST(req: Request) {
     return new NextResponse("Unknown tour product", { status: 400 });
   }
 
+  const existingBooking = await getTourBookingByPaymentIntentId(intent.id);
+
   const bookingPayload = {
     productId: product.id,
     productTitle: product.title,
@@ -115,7 +121,8 @@ export async function POST(req: Request) {
       paymentIntentId: intent.id,
       checkoutSessionId: session.id,
     },
-    paidAt: new Date().toISOString(),
+    paidAt: existingBooking?.paidAt ?? new Date().toISOString(),
+    confirmationEmailsSentAt: existingBooking?.confirmationEmailsSentAt,
   };
 
   try {
@@ -126,27 +133,49 @@ export async function POST(req: Request) {
   }
 
   const bookingForEmail: TourBooking = {
-    id: intent.id,
-    createdAt: new Date().toISOString(),
+    id: existingBooking?.id ?? intent.id,
+    createdAt: existingBooking?.createdAt ?? new Date().toISOString(),
     ...bookingPayload,
   };
 
-  const emailResult = await sendTourBookingEmails(bookingForEmail);
+  if (!existingBooking?.confirmationEmailsSentAt) {
+    const emailResult = await sendTourBookingEmails(bookingForEmail);
 
-  if (emailResult.success) {
-    console.log(
-      "✅ TOURS_BOOKING_EMAILS_SENT",
-      JSON.stringify({
-        paymentIntentId: intent.id,
-        customerEmail: bookingPayload.customer.email,
-      })
-    );
+    if (emailResult.success) {
+      const sentAt = new Date().toISOString();
+
+      try {
+        await markTourBookingConfirmationEmailsSent(intent.id, sentAt);
+      } catch (error) {
+        console.error("❌ Failed to mark confirmation emails as sent", error);
+        return new NextResponse("Failed to mark confirmation emails as sent", {
+          status: 500,
+        });
+      }
+
+      console.log(
+        "✅ TOURS_BOOKING_EMAILS_SENT",
+        JSON.stringify({
+          paymentIntentId: intent.id,
+          customerEmail: bookingPayload.customer.email,
+          sentAt,
+        })
+      );
+    } else {
+      console.error(
+        "❌ TOURS_BOOKING_EMAILS_FAILED",
+        JSON.stringify({
+          paymentIntentId: intent.id,
+          message: emailResult.message,
+        })
+      );
+    }
   } else {
-    console.error(
-      "❌ TOURS_BOOKING_EMAILS_FAILED",
+    console.log(
+      "ℹ️ TOURS_BOOKING_EMAILS_SKIPPED_ALREADY_SENT",
       JSON.stringify({
         paymentIntentId: intent.id,
-        message: emailResult.message,
+        confirmationEmailsSentAt: existingBooking.confirmationEmailsSentAt,
       })
     );
   }

@@ -133,4 +133,5 @@ export type TourBooking = {
 
   createdAt: string;
   paidAt: string;
+  confirmationEmailsSentAt?: string;
 };
