@@ -121,14 +121,12 @@ export async function POST(req: Request) {
   }
 
   const customerName = metadata.customerName ?? "";
-  const { firstName, lastName } = splitName(customerName);
 
   let octoConfirm;
   try {
     octoConfirm = await confirmOctoBooking({
       bookingUuid: octoBookingUuid,
-      firstName,
-      lastName,
+      fullName: customerName,
       emailAddress: metadata.customerEmail ?? "",
       phoneNumber: metadata.customerPhone ?? "",
       country: "EE",

@@ -171,8 +171,7 @@ export async function createOctoHold(
 
 type OctoConfirmParams = {
   bookingUuid: string;
-  firstName: string;
-  lastName: string;
+  fullName: string;
   emailAddress: string;
   phoneNumber: string;
   country: string;
@@ -192,8 +191,7 @@ export async function confirmOctoBooking(
     method: "POST",
     body: JSON.stringify({
       contact: {
-        firstName: params.firstName,
-        lastName: params.lastName,
+        fullName: params.fullName,
         emailAddress: params.emailAddress,
         phoneNumber: params.phoneNumber,
         country: params.country,
