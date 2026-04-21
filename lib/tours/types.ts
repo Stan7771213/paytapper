@@ -22,6 +22,8 @@ export type SlotAvailability = {
   capacityRemaining: number;
   isBookable: boolean;
   cutoffMinutes: number;
+  octoAvailabilityId?: string;
+  utcCutoffAt?: string | null;
 };
 
 export type AvailabilityResponse = {

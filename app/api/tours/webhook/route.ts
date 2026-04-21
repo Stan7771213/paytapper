@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
-import { toursStripe } from "@/lib/tours/stripe";
 import { getTourProductById } from "@/lib/tours/config";
 import {
   getTourBookingByPaymentIntentId,
@@ -9,6 +8,8 @@ import {
   upsertTourBookingByPaymentIntentId,
 } from "@/lib/tours/bookingStore";
 import { sendTourBookingEmails } from "@/lib/tours/email";
+import { confirmOctoBooking } from "@/lib/tours/octo";
+import { toursStripe } from "@/lib/tours/stripe";
 import type { TourBooking } from "@/lib/types";
 
 function requireEnv(name: string): string {
@@ -43,6 +44,23 @@ async function resolveCheckoutSession(
 function toInt(value: string | undefined): number {
   const n = Number(value ?? "");
   return Number.isFinite(n) ? Math.trunc(n) : 0;
+}
+
+function splitName(fullName: string): { firstName: string; lastName: string } {
+  const trimmed = fullName.trim();
+  if (!trimmed) {
+    return { firstName: "", lastName: "" };
+  }
+
+  const parts = trimmed.split(/\s+/);
+  if (parts.length === 1) {
+    return { firstName: parts[0], lastName: "" };
+  }
+
+  return {
+    firstName: parts[0],
+    lastName: parts.slice(1).join(" "),
+  };
 }
 
 export async function POST(req: Request) {
@@ -96,6 +114,42 @@ export async function POST(req: Request) {
     return new NextResponse("Unknown tour product", { status: 400 });
   }
 
+  const octoBookingUuid = metadata.octoBookingUuid?.trim() ?? "";
+  if (!octoBookingUuid) {
+    console.error("❌ Missing octoBookingUuid in payment metadata");
+    return new NextResponse("Missing octoBookingUuid", { status: 500 });
+  }
+
+  const customerName = metadata.customerName ?? "";
+  const { firstName, lastName } = splitName(customerName);
+
+  let octoConfirm;
+  try {
+    octoConfirm = await confirmOctoBooking({
+      bookingUuid: octoBookingUuid,
+      firstName,
+      lastName,
+      emailAddress: metadata.customerEmail ?? "",
+      phoneNumber: metadata.customerPhone ?? "",
+      country: "EE",
+    });
+  } catch (error) {
+    console.error("❌ Failed to confirm OCTO booking", error);
+    return new NextResponse("Failed to confirm OCTO booking", { status: 500 });
+  }
+
+  if (octoConfirm.status !== "CONFIRMED") {
+    console.error(
+      "❌ OCTO booking did not confirm",
+      JSON.stringify({
+        paymentIntentId: intent.id,
+        octoBookingUuid,
+        octoStatus: octoConfirm.status,
+      })
+    );
+    return new NextResponse("OCTO booking not confirmed", { status: 500 });
+  }
+
   const existingBooking = await getTourBookingByPaymentIntentId(intent.id);
 
   const bookingPayload = {
@@ -113,7 +167,7 @@ export async function POST(req: Request) {
     currency: "eur" as const,
     status: "paid" as const,
     customer: {
-      name: metadata.customerName ?? "",
+      name: customerName,
       email: metadata.customerEmail ?? "",
       phone: metadata.customerPhone ?? "",
     },
@@ -179,6 +233,16 @@ export async function POST(req: Request) {
       })
     );
   }
+
+  console.log(
+    "✅ TOURS_BOOKING_CONFIRMED_IN_OCTO",
+    JSON.stringify({
+      paymentIntentId: intent.id,
+      octoBookingUuid,
+      octoConfirmedAt: octoConfirm.utcConfirmedAt,
+      voucherDeliveryValue: octoConfirm.voucherDeliveryValue,
+    })
+  );
 
   console.log(
     "✅ TOURS_BOOKING_STORED",

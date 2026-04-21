@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { AvailabilityResponse, SlotAvailability, TourProduct } from '@/lib/tours/types';
 import { getTodayDateString } from '@/lib/tours/validation';
@@ -12,6 +12,7 @@ type BookingFormProps = {
 type FormState = {
   name: string;
   countryCode: string;
+  manualCountryCode: string;
   phone: string;
   email: string;
   adults: number;
@@ -57,17 +58,25 @@ function normalizeSelectedDate(value: string): string {
 const COUNTRY_CODES = [
   { value: '+372', label: '🇪🇪 +372' },
   { value: '+358', label: '🇫🇮 +358' },
+  { value: '+46', label: '🇸🇪 +46' },
+  { value: '+47', label: '🇳🇴 +47' },
   { value: '+371', label: '🇱🇻 +371' },
   { value: '+370', label: '🇱🇹 +370' },
   { value: '+48', label: '🇵🇱 +48' },
-  { value: '+49', label: '🇩🇪 +49' },
   { value: '+44', label: '🇬🇧 +44' },
+  { value: '+49', label: '🇩🇪 +49' },
+  { value: '+31', label: '🇳🇱 +31' },
   { value: '+33', label: '🇫🇷 +33' },
-  { value: '+39', label: '🇮🇹 +39' },
   { value: '+34', label: '🇪🇸 +34' },
+  { value: '+39', label: '🇮🇹 +39' },
   { value: '+1', label: '🇺🇸 +1' },
+  { value: '+61', label: '🇦🇺 +61' },
+  { value: '+91', label: '🇮🇳 +91' },
+  { value: '+65', label: '🇸🇬 +65' },
+  { value: '+86', label: '🇨🇳 +86' },
   { value: '+7', label: '🇰🇿/🇷🇺 +7' },
   { value: '+380', label: '🇺🇦 +380' },
+  { value: 'OTHER', label: '🌍 Other' },
 ];
 
 function FieldLabel({
@@ -88,6 +97,7 @@ export function BookingForm({ product }: BookingFormProps) {
   const [form, setForm] = useState<FormState>({
     name: '',
     countryCode: '+372',
+    manualCountryCode: '',
     phone: '',
     email: '',
     adults: 1,
@@ -95,6 +105,7 @@ export function BookingForm({ product }: BookingFormProps) {
     date: getTodayDateString(),
     time: '',
   });
+  const dateInputRef = useRef<HTMLInputElement | null>(null);
   const [slots, setSlots] = useState<SlotAvailability[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -255,6 +266,9 @@ export function BookingForm({ product }: BookingFormProps) {
     setSubmitError(null);
     setIsSubmitting(true);
 
+    const effectiveCountryCode =
+      form.countryCode === 'OTHER' ? form.manualCountryCode.trim() : form.countryCode;
+
     try {
       const response = await fetch('/api/tours/checkout', {
         method: 'POST',
@@ -264,7 +278,7 @@ export function BookingForm({ product }: BookingFormProps) {
         body: JSON.stringify({
           productId: product.id,
           name: form.name,
-          countryCode: form.countryCode,
+          countryCode: effectiveCountryCode,
           phone: form.phone,
           email: form.email,
           adults: form.adults,
@@ -322,33 +336,48 @@ export function BookingForm({ product }: BookingFormProps) {
         <label className="mb-1 block text-sm font-medium text-white">
           Phone / WhatsApp <span className="text-red-400">*</span>
         </label>
-        <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-3">
-          <select
-            value={form.countryCode}
-            onChange={(event) => updateField('countryCode', event.target.value)}
-            className="rounded-2xl border border-white/20 bg-black px-3 py-3 text-white outline-none"
-            aria-label="Country code"
-          >
-            {COUNTRY_CODES.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+        <div className="space-y-3">
+          <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-3">
+            <select
+              value={form.countryCode}
+              onChange={(event) => updateField('countryCode', event.target.value)}
+              className="rounded-2xl border border-white/20 bg-black px-3 py-3 text-white outline-none"
+              aria-label="Country code"
+            >
+              {COUNTRY_CODES.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
 
-          <input
-            id="tour-phone"
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            value={form.phone}
-            onChange={(event) => updateField('phone', event.target.value)}
-            required
-            minLength={5}
-            pattern="[0-9\s\-()]{5,20}"
-            placeholder="Phone number"
-            className="w-full rounded-2xl border border-white/20 bg-black px-4 py-3 text-white outline-none placeholder:text-gray-500"
-          />
+            <input
+              id="tour-phone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              value={form.phone}
+              onChange={(event) => updateField('phone', event.target.value)}
+              required
+              minLength={5}
+              pattern="[0-9\s\-()]{5,20}"
+              placeholder="Phone number"
+              className="w-full rounded-2xl border border-white/20 bg-black px-4 py-3 text-white outline-none placeholder:text-gray-500"
+            />
+          </div>
+
+          {form.countryCode === 'OTHER' ? (
+            <input
+              type="text"
+              inputMode="tel"
+              value={form.manualCountryCode}
+              onChange={(event) => updateField('manualCountryCode', event.target.value)}
+              required
+              placeholder="+351"
+              pattern="^\+[0-9]{1,4}$"
+              className="w-full rounded-2xl border border-white/20 bg-black px-4 py-3 text-white outline-none placeholder:text-gray-500"
+            />
+          ) : null}
         </div>
         <p className="mt-2 text-xs text-gray-500">
           Please enter your full phone number including country code.
@@ -433,11 +462,24 @@ export function BookingForm({ product }: BookingFormProps) {
 
         <div className="relative">
           <input
+            ref={dateInputRef}
             id="tour-date"
             type="date"
             min={getTodayDateString()}
             value={form.date}
             onChange={(event) => handleDateChange(event.target.value)}
+            onClick={() => {
+              const input = dateInputRef.current as (HTMLInputElement & {
+                showPicker?: () => void;
+              }) | null;
+              input?.showPicker?.();
+            }}
+            onFocus={() => {
+              const input = dateInputRef.current as (HTMLInputElement & {
+                showPicker?: () => void;
+              }) | null;
+              input?.showPicker?.();
+            }}
             required
             className="w-full rounded-2xl border border-white/20 bg-black px-4 py-3 pr-12 text-white outline-none"
           />

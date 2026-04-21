@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getAvailabilityProvider } from "@/lib/tours/availability";
 import { getTourProductById } from "@/lib/tours/config";
+import { createOctoHold } from "@/lib/tours/octo";
 import { toursStripe } from "@/lib/tours/stripe";
 import {
   ALLOWED_SLOT_TIMES,
@@ -102,11 +103,17 @@ export async function POST(req: NextRequest) {
     }
 
     if (!isPositiveInteger(body.adults)) {
-      return NextResponse.json({ error: "adults must be a positive integer" }, { status: 400 });
+      return NextResponse.json(
+        { error: "adults must be a positive integer" },
+        { status: 400 }
+      );
     }
 
     if (!isNonNegativeInteger(body.children)) {
-      return NextResponse.json({ error: "children must be a non-negative integer" }, { status: 400 });
+      return NextResponse.json(
+        { error: "children must be a non-negative integer" },
+        { status: 400 }
+      );
     }
 
     if (!date || !isValidDateString(date)) {
@@ -125,7 +132,10 @@ export async function POST(req: NextRequest) {
     const payableGuests = adults + extraPaidChildren;
 
     if (totalGuests <= 0) {
-      return NextResponse.json({ error: "At least one guest is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "At least one guest is required" },
+        { status: 400 }
+      );
     }
 
     const provider = getAvailabilityProvider();
@@ -152,9 +162,58 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (!slot.octoAvailabilityId) {
+      return NextResponse.json(
+        { error: "Missing OCTO availability id for selected slot" },
+        { status: 500 }
+      );
+    }
+
+    const hold = await createOctoHold({
+      productId: product.octoProductId,
+      optionId: product.octoOptionId,
+      availabilityId: slot.octoAvailabilityId,
+      adultUnitId: product.octoAdultUnitId,
+      childUnitId: product.octoChildUnitId,
+      adults,
+      children,
+      expirationMinutes: 15,
+      notes: "Hold created from reseller checkout flow",
+    });
+
+    if (hold.status !== "ON_HOLD") {
+      return NextResponse.json(
+        {
+          error: "Failed to place booking on hold",
+          details: { holdStatus: hold.status },
+        },
+        { status: 409 }
+      );
+    }
+
     const fullPhone = `${countryCode}${phone}`.replace(/\s+/g, "");
     const amountCents = payableGuests * product.priceCents;
     const baseUrl = getBaseUrl();
+
+    const metadata = {
+      paymentDomain: "tours",
+      tourProductId: product.id,
+      tourDate: date,
+      tourTime: time,
+      customerName: name,
+      customerEmail: email,
+      customerPhone: fullPhone,
+      adults: String(adults),
+      children: String(children),
+      freeChildren: String(freeChildren),
+      extraPaidChildren: String(extraPaidChildren),
+      payableGuests: String(payableGuests),
+      totalGuests: String(totalGuests),
+      cutoffMinutes: String(BOOKING_CUTOFF_MINUTES),
+      octoBookingUuid: hold.bookingUuid,
+      octoAvailabilityId: hold.availabilityId,
+      octoHoldExpiresAt: hold.utcExpiresAt ?? "",
+    };
 
     const session = await toursStripe.checkout.sessions.create({
       mode: "payment",
@@ -176,43 +235,19 @@ export async function POST(req: NextRequest) {
       success_url: `${baseUrl}/tours/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/tours/cancel`,
       payment_intent_data: {
-        metadata: {
-          paymentDomain: "tours",
-          tourProductId: product.id,
-          tourDate: date,
-          tourTime: time,
-          customerName: name,
-          customerEmail: email,
-          customerPhone: fullPhone,
-          adults: String(adults),
-          children: String(children),
-          freeChildren: String(freeChildren),
-          extraPaidChildren: String(extraPaidChildren),
-          payableGuests: String(payableGuests),
-          totalGuests: String(totalGuests),
-          cutoffMinutes: String(BOOKING_CUTOFF_MINUTES),
-        },
+        metadata,
       },
-      metadata: {
-        paymentDomain: "tours",
-        tourProductId: product.id,
-        tourDate: date,
-        tourTime: time,
-        customerName: name,
-        customerEmail: email,
-        customerPhone: fullPhone,
-        adults: String(adults),
-        children: String(children),
-        freeChildren: String(freeChildren),
-        extraPaidChildren: String(extraPaidChildren),
-        payableGuests: String(payableGuests),
-        totalGuests: String(totalGuests),
-      },
+      metadata,
     });
 
     return NextResponse.json({
       checkoutSessionId: session.id,
       url: session.url,
+      hold: {
+        bookingUuid: hold.bookingUuid,
+        status: hold.status,
+        utcExpiresAt: hold.utcExpiresAt,
+      },
       summary: {
         productId: product.id,
         date,
