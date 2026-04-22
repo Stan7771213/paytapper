@@ -30,6 +30,7 @@ export type TourProduct = {
   badgeText?: string;
   priceNote?: string;
   capacityNote?: string;
+  additionalInfoNote?: string;
   privatePriceTiers?: TourPriceTier[];
   maxBookingsPerDay?: number;
   maxBookingsPerSlot?: number;

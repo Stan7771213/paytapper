@@ -38,6 +38,11 @@ export function TourLanding({ product }: TourLandingProps) {
                   {product.capacityNote}
                 </div>
               ) : null}
+              {product.additionalInfoNote ? (
+                <div className="rounded-full border border-white/20 px-4 py-2 text-sm text-white">
+                  {product.additionalInfoNote}
+                </div>
+              ) : null}
             </div>
           </div>
 

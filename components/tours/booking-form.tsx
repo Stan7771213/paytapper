@@ -471,7 +471,9 @@ export function BookingForm({ product }: BookingFormProps) {
                   <div className="flex items-center justify-between gap-3">
                     <span>{slot.time}</span>
                     <span className="text-xs text-gray-400">
-                      booking closes {slot.cutoffMinutes} min before
+                      {product.availabilityMode === 'octo'
+                        ? `${slot.capacityRemaining} place${slot.capacityRemaining === 1 ? '' : 's'} left`
+                        : `booking closes ${slot.cutoffMinutes} min before`}
                     </span>
                   </div>
                 </button>

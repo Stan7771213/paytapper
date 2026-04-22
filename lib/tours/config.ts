@@ -29,6 +29,7 @@ export const TALLINN_OLD_TOWN_TOUR: TourProductConfig = {
   badgeText: '120° Group Tour',
   priceNote: '€35 per paying guest',
   capacityNote: 'Children under 12 free with 1 adult per 1 child',
+  additionalInfoNote: 'Groups are usually up to 17 people. For larger groups, 2–3 guides are assigned.',
 
   octoProductId: '70ef96f8-9d54-4beb-80b2-26f0137fbcc7',
   octoOptionId: '6aa3fadd-5281-4f82-a7df-e4e38343f631',
