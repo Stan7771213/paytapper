@@ -1,4 +1,14 @@
-export type TourSlotTime = '10:00' | '13:00' | '15:30';
+export type TourSlotTime = string;
+
+export type TourAvailabilityMode = 'octo' | 'local';
+export type TourPricingMode = 'perPayableGuest' | 'privateTiered';
+
+export type TourPriceTier = {
+  minGuests: number;
+  maxGuests: number;
+  amountCents: number;
+  label: string;
+};
 
 export type TourProduct = {
   id: string;
@@ -13,6 +23,16 @@ export type TourProduct = {
   priceCents: number;
   slotTimes: TourSlotTime[];
   defaultCapacity: number;
+  maxGuests: number;
+  cutoffMinutes: number;
+  availabilityMode: TourAvailabilityMode;
+  pricingMode: TourPricingMode;
+  badgeText?: string;
+  priceNote?: string;
+  capacityNote?: string;
+  privatePriceTiers?: TourPriceTier[];
+  maxBookingsPerDay?: number;
+  maxBookingsPerSlot?: number;
 };
 
 export type SlotAvailability = {

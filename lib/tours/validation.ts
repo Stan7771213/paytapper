@@ -1,14 +1,14 @@
 import type { TourSlotTime } from './types';
 
 export const BOOKING_CUTOFF_MINUTES = 15;
-export const ALLOWED_SLOT_TIMES: TourSlotTime[] = ['10:00', '13:00', '15:30'];
+const SLOT_TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 export function isValidDateString(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
 export function isValidSlotTime(value: string): value is TourSlotTime {
-  return ALLOWED_SLOT_TIMES.includes(value as TourSlotTime);
+  return SLOT_TIME_PATTERN.test(value);
 }
 
 export function getTodayDateString(): string {

@@ -2,7 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import type { AvailabilityResponse, SlotAvailability, TourProduct } from '@/lib/tours/types';
+import type {
+  AvailabilityResponse,
+  SlotAvailability,
+  TourPriceTier,
+  TourProduct,
+} from '@/lib/tours/types';
 import { getTodayDateString } from '@/lib/tours/validation';
 
 type BookingFormProps = {
@@ -28,7 +33,7 @@ function normalizeParty(params: {
 }): { adults: number; children: number } {
   let adults = Math.max(1, params.adults);
   let children = Math.max(0, params.children);
-  const maxGuests = Math.max(0, params.maxGuests);
+  const maxGuests = Math.max(1, params.maxGuests);
 
   while (adults + children > maxGuests && children > 0) {
     children -= 1;
@@ -38,12 +43,8 @@ function normalizeParty(params: {
     adults -= 1;
   }
 
-  if (maxGuests > 0 && adults > maxGuests) {
+  if (adults > maxGuests) {
     adults = maxGuests;
-  }
-
-  if (maxGuests === 0) {
-    return { adults: 1, children: 0 };
   }
 
   return { adults, children };
@@ -53,6 +54,16 @@ function normalizeSelectedDate(value: string): string {
   const today = getTodayDateString();
   if (!value) return today;
   return value < today ? today : value;
+}
+
+function resolvePrivateTier(
+  tiers: TourPriceTier[] | undefined,
+  totalGuests: number,
+): TourPriceTier | null {
+  if (!tiers?.length) return null;
+  return tiers.find(
+    (tier) => totalGuests >= tier.minGuests && totalGuests <= tier.maxGuests,
+  ) ?? null;
 }
 
 const COUNTRY_CODES = [
@@ -163,7 +174,7 @@ export function BookingForm({ product }: BookingFormProps) {
         const normalized = normalizeParty({
           adults: form.adults,
           children: form.children,
-          maxGuests: nextSelected.capacityRemaining,
+          maxGuests: product.maxGuests,
         });
 
         setForm((current) => ({
@@ -189,21 +200,44 @@ export function BookingForm({ product }: BookingFormProps) {
     return () => {
       cancelled = true;
     };
-  }, [form.date, product.id, form.time, form.adults, form.children]);
+  }, [form.date, product.id, form.time, form.adults, form.children, product.maxGuests]);
 
   const selectedSlot = useMemo(() => {
     return slots.find((slot) => slot.time === form.time) ?? null;
   }, [slots, form.time]);
 
-  const capacityRemaining = selectedSlot?.capacityRemaining ?? 0;
   const totalGuests = form.adults + form.children;
   const freeChildren = Math.min(form.children, form.adults);
   const extraPaidChildren = Math.max(form.children - form.adults, 0);
   const payableGuests = form.adults + extraPaidChildren;
-  const totalPriceCents = payableGuests * product.priceCents;
-  const totalPrice = (totalPriceCents / 100).toFixed(2);
-  const canIncreaseAdults = selectedSlot ? totalGuests < capacityRemaining : false;
-  const canIncreaseChildren = selectedSlot ? totalGuests < capacityRemaining : false;
+  const privateTier = resolvePrivateTier(product.privatePriceTiers, totalGuests);
+
+  const pricingSummary = useMemo(() => {
+    if (product.pricingMode === 'privateTiered') {
+      const amountCents = privateTier?.amountCents ?? 0;
+      return {
+        amountCents,
+        totalPrice: (amountCents / 100).toFixed(2),
+        lineLabel: privateTier?.label ?? 'Price unavailable for this group size',
+        helperText:
+          'Private tour pricing is per group, not per person.',
+      };
+    }
+
+    const amountCents = payableGuests * product.priceCents;
+    return {
+      amountCents,
+      totalPrice: (amountCents / 100).toFixed(2),
+      lineLabel: `€${(product.priceCents / 100).toFixed(2)} per paying guest`,
+      helperText:
+        '1 adult covers 1 child under 12 for free. Extra children are charged as paying guests.',
+    };
+  }, [product.pricingMode, product.priceCents, product.privatePriceTiers, privateTier, payableGuests]);
+
+  const canIncreaseAdults = totalGuests < product.maxGuests;
+  const canIncreaseChildren = totalGuests < product.maxGuests;
+  const isGroupSizeValid =
+    product.pricingMode === 'privateTiered' ? privateTier !== null : true;
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -220,7 +254,7 @@ export function BookingForm({ product }: BookingFormProps) {
     const normalized = normalizeParty({
       adults: form.adults,
       children: form.children,
-      maxGuests: slot.capacityRemaining,
+      maxGuests: product.maxGuests,
     });
 
     setForm((current) => ({
@@ -269,6 +303,12 @@ export function BookingForm({ product }: BookingFormProps) {
     const effectiveCountryCode =
       form.countryCode === 'OTHER' ? form.manualCountryCode.trim() : form.countryCode;
 
+    if (product.pricingMode === 'privateTiered' && !privateTier) {
+      setSubmitError('Selected group size is not supported for this private tour.');
+      setIsSubmitting(false);
+      return;
+    }
+
     try {
       const response = await fetch('/api/tours/checkout', {
         method: 'POST',
@@ -311,7 +351,9 @@ export function BookingForm({ product }: BookingFormProps) {
     >
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="text-sm uppercase tracking-wide text-[#E7FF00]">Book your group tour</p>
+          <p className="text-sm uppercase tracking-wide text-[#E7FF00]">
+            {product.pricingMode === 'privateTiered' ? 'Book your private tour' : 'Book your group tour'}
+          </p>
           <h2 className="text-2xl font-semibold text-white">Reserve your spot</h2>
         </div>
         <div className="rounded-full bg-[#E7FF00] px-3 py-1 text-sm font-semibold text-black">
@@ -319,278 +361,253 @@ export function BookingForm({ product }: BookingFormProps) {
         </div>
       </div>
 
-      <div>
-        <FieldLabel htmlFor="tour-name">Name</FieldLabel>
-        <input
-          id="tour-name"
-          type="text"
-          value={form.name}
-          onChange={(event) => updateField('name', event.target.value)}
-          required
-          autoComplete="name"
-          className="w-full rounded-2xl border border-white/20 bg-black px-4 py-3 text-white outline-none placeholder:text-gray-500"
-        />
-      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <FieldLabel htmlFor="name">Full name</FieldLabel>
+          <input
+            id="name"
+            type="text"
+            required
+            value={form.name}
+            onChange={(event) => updateField('name', event.target.value)}
+            className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white outline-none transition focus:border-[#E7FF00]"
+            placeholder="Your full name"
+          />
+        </div>
 
-      <div>
-        <label className="mb-1 block text-sm font-medium text-white">
-          Phone / WhatsApp <span className="text-red-400">*</span>
-        </label>
-        <div className="space-y-3">
-          <div className="grid grid-cols-[120px_minmax(0,1fr)] gap-3">
+        <div>
+          <FieldLabel htmlFor="email">Email</FieldLabel>
+          <input
+            id="email"
+            type="email"
+            required
+            value={form.email}
+            onChange={(event) => updateField('email', event.target.value)}
+            className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white outline-none transition focus:border-[#E7FF00]"
+            placeholder="name@example.com"
+          />
+        </div>
+
+        <div>
+          <FieldLabel htmlFor="countryCode">Phone / WhatsApp</FieldLabel>
+          <div className="flex gap-2">
             <select
+              id="countryCode"
               value={form.countryCode}
               onChange={(event) => updateField('countryCode', event.target.value)}
-              className="rounded-2xl border border-white/20 bg-black px-3 py-3 text-white outline-none"
-              aria-label="Country code"
+              className="w-[44%] rounded-2xl border border-white/10 bg-black/40 px-3 py-3 text-white outline-none transition focus:border-[#E7FF00]"
             >
-              {COUNTRY_CODES.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
+              {COUNTRY_CODES.map((country) => (
+                <option key={country.value} value={country.value}>
+                  {country.label}
                 </option>
               ))}
             </select>
 
             <input
-              id="tour-phone"
               type="tel"
-              inputMode="tel"
-              autoComplete="tel"
+              required
               value={form.phone}
               onChange={(event) => updateField('phone', event.target.value)}
-              required
-              minLength={5}
-              pattern="[0-9\s\-()]{5,20}"
-              placeholder="Phone number"
-              className="w-full rounded-2xl border border-white/20 bg-black px-4 py-3 text-white outline-none placeholder:text-gray-500"
+              className="w-[56%] rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white outline-none transition focus:border-[#E7FF00]"
+              placeholder="55512345"
             />
           </div>
 
           {form.countryCode === 'OTHER' ? (
             <input
               type="text"
-              inputMode="tel"
+              required
               value={form.manualCountryCode}
               onChange={(event) => updateField('manualCountryCode', event.target.value)}
-              required
-              placeholder="+351"
-              pattern="^\+[0-9]{1,4}$"
-              className="w-full rounded-2xl border border-white/20 bg-black px-4 py-3 text-white outline-none placeholder:text-gray-500"
+              className="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white outline-none transition focus:border-[#E7FF00]"
+              placeholder="Enter country code, e.g. +351"
             />
           ) : null}
         </div>
-        <p className="mt-2 text-xs text-gray-500">
-          Please enter your full phone number including country code.
-        </p>
-      </div>
 
-      <div>
-        <FieldLabel htmlFor="tour-email">Email</FieldLabel>
-        <input
-          id="tour-email"
-          type="email"
-          inputMode="email"
-          autoComplete="email"
-          value={form.email}
-          onChange={(event) => updateField('email', event.target.value)}
-          required
-          pattern="^[^\s@]+@[^\s@]+\.[^\s@]+$"
-          placeholder="name@example.com"
-          className="w-full rounded-2xl border border-white/20 bg-black px-4 py-3 text-white outline-none placeholder:text-gray-500"
-        />
-        <p className="mt-2 text-xs text-gray-500">
-          Please enter a valid email address.
-        </p>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-2xl border border-white/10 bg-black p-4">
-          <div className="mb-2">
-            <p className="text-sm font-medium text-white">
-              Adults <span className="text-red-400">*</span>
-            </p>
-            <p className="text-xs text-gray-400">Age 12 to 65+</p>
-          </div>
-          <div className="flex items-center justify-between">
+        <div>
+          <FieldLabel htmlFor="date">Date</FieldLabel>
+          <div className="relative">
+            <input
+              ref={dateInputRef}
+              id="date"
+              type="date"
+              required
+              min={getTodayDateString()}
+              value={form.date}
+              onChange={(event) => handleDateChange(event.target.value)}
+              className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-white outline-none transition focus:border-[#E7FF00]"
+            />
             <button
               type="button"
-              onClick={decrementAdults}
-              className="rounded-xl border border-white/20 px-4 py-2 text-white"
+              onClick={() => dateInputRef.current?.showPicker?.()}
+              className="absolute inset-y-0 right-2 my-auto rounded-full px-3 py-1 text-xs font-medium text-[#E7FF00]"
             >
-              -
-            </button>
-            <div className="text-xl font-semibold text-white">{form.adults}</div>
-            <button
-              type="button"
-              onClick={incrementAdults}
-              disabled={!canIncreaseAdults}
-              className="rounded-xl border border-white/20 px-4 py-2 text-white disabled:opacity-40"
-            >
-              +
+              Pick
             </button>
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-black p-4">
-          <div className="mb-2">
-            <p className="text-sm font-medium text-white">Children under 12</p>
-            <p className="text-xs text-gray-400">1 adult = 1 free child</p>
-          </div>
-          <div className="flex items-center justify-between">
-            <button
-              type="button"
-              onClick={decrementChildren}
-              className="rounded-xl border border-white/20 px-4 py-2 text-white"
-            >
-              -
-            </button>
-            <div className="text-xl font-semibold text-white">{form.children}</div>
-            <button
-              type="button"
-              onClick={incrementChildren}
-              disabled={!canIncreaseChildren}
-              className="rounded-xl border border-white/20 px-4 py-2 text-white disabled:opacity-40"
-            >
-              +
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <FieldLabel htmlFor="tour-date">Date</FieldLabel>
-
-        <div className="relative">
-          <input
-            ref={dateInputRef}
-            id="tour-date"
-            type="date"
-            min={getTodayDateString()}
-            value={form.date}
-            onChange={(event) => handleDateChange(event.target.value)}
-            onClick={() => {
-              const input = dateInputRef.current as (HTMLInputElement & {
-                showPicker?: () => void;
-              }) | null;
-              input?.showPicker?.();
-            }}
-            onFocus={() => {
-              const input = dateInputRef.current as (HTMLInputElement & {
-                showPicker?: () => void;
-              }) | null;
-              input?.showPicker?.();
-            }}
-            required
-            className="w-full rounded-2xl border border-white/20 bg-black px-4 py-3 pr-12 text-white outline-none"
-          />
-          <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-white/70">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="22"
-              height="22"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M8 2v4" />
-              <path d="M16 2v4" />
-              <rect x="3" y="4" width="18" height="18" rx="2" />
-              <path d="M3 10h18" />
-            </svg>
-          </div>
-        </div>
-
-        <p className="mt-2 text-xs text-gray-500">
-          Only today and future dates are allowed.
-        </p>
-      </div>
-
-      <div>
-        <p className="mb-2 block text-sm font-medium text-white">
-          Time <span className="text-red-400">*</span>
-        </p>
-        <div className="grid gap-3">
-          {isLoading ? (
-            <div className="rounded-2xl border border-white/10 bg-black px-4 py-3 text-sm text-gray-400">
-              Loading available times...
-            </div>
-          ) : null}
-
-          {!isLoading && slots.length === 0 ? (
-            <div className="rounded-2xl border border-white/10 bg-black px-4 py-3 text-sm text-gray-400">
-              No available tours for the selected date.
-            </div>
-          ) : null}
-
-          {!isLoading &&
-            slots.map((slot) => {
-              const isActive = form.time === slot.time;
-
-              return (
+        <div>
+          <FieldLabel htmlFor="time">Time</FieldLabel>
+          <div className="grid grid-cols-1 gap-2">
+            {isLoading ? (
+              <div className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-gray-300">
+                Loading available times...
+              </div>
+            ) : slots.length > 0 ? (
+              slots.map((slot) => (
                 <button
                   key={slot.time}
                   type="button"
                   onClick={() => selectTime(slot.time)}
-                  className={[
-                    'flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition',
-                    isActive
-                      ? 'border-[#E7FF00] bg-[#E7FF00] text-black'
-                      : 'border-white/15 bg-black text-white hover:border-[#E7FF00]/50',
-                  ].join(' ')}
+                  className={`rounded-2xl border px-4 py-3 text-left text-sm transition ${
+                    form.time === slot.time
+                      ? 'border-[#E7FF00] bg-[#E7FF00]/10 text-white'
+                      : 'border-white/10 bg-black/30 text-gray-300 hover:border-white/30'
+                  }`}
                 >
-                  <span className="font-medium">{slot.time}</span>
-                  <span className={isActive ? 'text-black/80' : 'text-gray-400'}>
-                    {slot.capacityRemaining} places left
-                  </span>
+                  <div className="flex items-center justify-between gap-3">
+                    <span>{slot.time}</span>
+                    <span className="text-xs text-gray-400">
+                      booking closes {slot.cutoffMinutes} min before
+                    </span>
+                  </div>
                 </button>
-              );
-            })}
-        </div>
-
-        {error ? <p className="mt-2 text-sm text-red-400">{error}</p> : null}
-      </div>
-
-      <div className="rounded-2xl border border-white/10 bg-black p-4 text-sm">
-        <div className="flex items-center justify-between text-gray-300">
-          <span>Total participants</span>
-          <span>{totalGuests}</span>
-        </div>
-        <div className="mt-2 flex items-center justify-between text-gray-300">
-          <span>Free children covered by adults</span>
-          <span>{freeChildren}</span>
-        </div>
-        <div className="mt-2 flex items-center justify-between text-gray-300">
-          <span>Extra paid children</span>
-          <span>{extraPaidChildren}</span>
-        </div>
-        <div className="mt-3 border-t border-white/10 pt-3">
-          <div className="flex items-center justify-between text-base font-semibold text-white">
-            <span>Payable guests</span>
-            <span>{payableGuests}</span>
-          </div>
-          <div className="mt-2 flex items-center justify-between text-xl font-semibold text-[#E7FF00]">
-            <span>Total</span>
-            <span>€{totalPrice}</span>
+              ))
+            ) : (
+              <div className="rounded-2xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-gray-300">
+                No available times for this date.
+              </div>
+            )}
           </div>
         </div>
+
+        <div>
+          <FieldLabel htmlFor="adults">Adults</FieldLabel>
+          <div className="flex items-center overflow-hidden rounded-2xl border border-white/10 bg-black/30">
+            <button
+              type="button"
+              onClick={decrementAdults}
+              className="px-4 py-3 text-xl text-white transition hover:bg-white/5"
+            >
+              −
+            </button>
+            <div className="flex-1 text-center text-white">{form.adults}</div>
+            <button
+              type="button"
+              onClick={incrementAdults}
+              className="px-4 py-3 text-xl text-white transition hover:bg-white/5"
+            >
+              +
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <FieldLabel htmlFor="children">Children under 12</FieldLabel>
+          <div className="flex items-center overflow-hidden rounded-2xl border border-white/10 bg-black/30">
+            <button
+              type="button"
+              onClick={decrementChildren}
+              className="px-4 py-3 text-xl text-white transition hover:bg-white/5"
+            >
+              −
+            </button>
+            <div className="flex-1 text-center text-white">{form.children}</div>
+            <button
+              type="button"
+              onClick={incrementChildren}
+              className="px-4 py-3 text-xl text-white transition hover:bg-white/5"
+            >
+              +
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-black p-4 text-xs leading-6 text-gray-400">
-        Tickets are non-refundable and non-exchangeable after purchase.
+      {error ? (
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          {error}
+        </div>
+      ) : null}
+
+      <div className="rounded-3xl border border-white/10 bg-black/30 p-5">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <p className="text-sm uppercase tracking-wide text-[#E7FF00]">Price summary</p>
+            <h3 className="mt-1 text-xl font-semibold text-white">
+              Total: €{pricingSummary.totalPrice}
+            </h3>
+          </div>
+          <div className="rounded-full border border-white/10 px-3 py-1 text-sm text-white">
+            {totalGuests} guest{totalGuests === 1 ? '' : 's'}
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-2 text-sm text-gray-300">
+          <div className="flex items-center justify-between gap-4">
+            <span>Pricing</span>
+            <span className="text-right text-white">{pricingSummary.lineLabel}</span>
+          </div>
+
+          {product.pricingMode === 'perPayableGuest' ? (
+            <>
+              <div className="flex items-center justify-between gap-4">
+                <span>Adults</span>
+                <span className="text-white">{form.adults}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span>Children under 12</span>
+                <span className="text-white">{form.children}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span>Free children covered</span>
+                <span className="text-white">{freeChildren}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span>Payable guests</span>
+                <span className="text-white">{payableGuests}</span>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-between gap-4">
+                <span>Adults</span>
+                <span className="text-white">{form.adults}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span>Children under 12</span>
+                <span className="text-white">{form.children}</span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span>Private group size</span>
+                <span className="text-white">{totalGuests}</span>
+              </div>
+            </>
+          )}
+        </div>
+
+        <p className="mt-4 text-sm leading-6 text-gray-400">{pricingSummary.helperText}</p>
       </div>
 
       {submitError ? (
-        <p className="text-sm text-red-400">{submitError}</p>
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          {submitError}
+        </div>
+      ) : null}
+
+      {!isGroupSizeValid ? (
+        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          This group size is not available for the selected private tour.
+        </div>
       ) : null}
 
       <button
         type="submit"
-        className="w-full rounded-2xl bg-[#E7FF00] px-4 py-3 font-semibold text-black disabled:opacity-50"
-        disabled={isLoading || isSubmitting || !form.time || !selectedSlot}
+        disabled={isSubmitting || !form.time || isLoading || !isGroupSizeValid}
+        className="w-full rounded-2xl bg-[#E7FF00] px-5 py-4 text-base font-semibold text-black transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isSubmitting ? 'Redirecting to payment...' : 'Continue to payment'}
       </button>

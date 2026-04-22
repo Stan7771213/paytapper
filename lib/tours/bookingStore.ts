@@ -26,6 +26,14 @@ type TourBookingUpsertInput = {
     paymentIntentId: string;
     checkoutSessionId: string;
   };
+  octo?: {
+    bookingUuid?: string;
+    availabilityId?: string;
+    status?: string;
+    confirmedAt?: string;
+    voucherDeliveryValue?: string;
+    holdExpiresAt?: string;
+  };
   paidAt: string;
   confirmationEmailsSentAt?: string;
 };
@@ -72,6 +80,10 @@ export async function upsertTourBookingByPaymentIntentId(
       paidAt: existing.paidAt ?? input.paidAt,
       confirmationEmailsSentAt:
         existing.confirmationEmailsSentAt ?? input.confirmationEmailsSentAt,
+      octo: {
+        ...existing.octo,
+        ...input.octo,
+      },
     };
   } else {
     bookings.push({

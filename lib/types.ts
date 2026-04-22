@@ -131,6 +131,15 @@ export type TourBooking = {
     checkoutSessionId: string;
   };
 
+  octo?: {
+    bookingUuid?: string;
+    availabilityId?: string;
+    status?: string;
+    confirmedAt?: string;
+    voucherDeliveryValue?: string;
+    holdExpiresAt?: string;
+  };
+
   createdAt: string;
   paidAt: string;
   confirmationEmailsSentAt?: string;

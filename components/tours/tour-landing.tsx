@@ -8,14 +8,14 @@ type TourLandingProps = {
 };
 
 export function TourLanding({ product }: TourLandingProps) {
-  const price = (product.priceCents / 100).toFixed(2);
+  const fallbackPrice = (product.priceCents / 100).toFixed(2);
 
   return (
     <div className="min-h-screen bg-black text-white">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 md:grid-cols-[1.08fr_0.92fr]">
         <section className="space-y-6">
           <div className="inline-flex items-center rounded-full bg-[#E7FF00] px-4 py-1 text-sm font-semibold text-black">
-            120° Group Tour
+            {product.badgeText ?? '120° Tour'}
           </div>
 
           <div className="space-y-3">
@@ -28,14 +28,16 @@ export function TourLanding({ product }: TourLandingProps) {
 
             <div className="flex flex-wrap gap-3 pt-2">
               <div className="rounded-full border border-white/20 px-4 py-2 text-sm text-white">
-                €{price} per paying guest
+                {product.priceNote ?? `€${fallbackPrice}`}
               </div>
               <div className="rounded-full border border-white/20 px-4 py-2 text-sm text-white">
                 Duration: {product.durationText}
               </div>
-              <div className="rounded-full border border-white/20 px-4 py-2 text-sm text-white">
-                Children under 12 free with 1 adult per 1 child
-              </div>
+              {product.capacityNote ? (
+                <div className="rounded-full border border-white/20 px-4 py-2 text-sm text-white">
+                  {product.capacityNote}
+                </div>
+              ) : null}
             </div>
           </div>
 

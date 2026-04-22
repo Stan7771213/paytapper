@@ -1,28 +1,29 @@
-import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { NextResponse } from "next/server";
 
-import { getTourProductById } from "@/lib/tours/config";
+import { sendTourBookingEmails } from "@/lib/tours/email";
 import {
   getTourBookingByPaymentIntentId,
-  markTourBookingConfirmationEmailsSent,
   upsertTourBookingByPaymentIntentId,
 } from "@/lib/tours/bookingStore";
-import { sendTourBookingEmails } from "@/lib/tours/email";
+import { getTourProductById } from "@/lib/tours/config";
 import { confirmOctoBooking } from "@/lib/tours/octo";
 import { toursStripe } from "@/lib/tours/stripe";
-import type { TourBooking } from "@/lib/types";
 
-function requireEnv(name: string): string {
-  const value = process.env[name];
+export const runtime = "nodejs";
+
+function getWebhookSecret(): string {
+  const value = process.env.TOURS_STRIPE_WEBHOOK_SECRET;
   if (!value || !value.trim()) {
-    throw new Error("Missing required environment variable: " + name);
+    throw new Error("Missing TOURS_STRIPE_WEBHOOK_SECRET");
   }
   return value.trim();
 }
 
-const toursWebhookSecret = requireEnv("TOURS_STRIPE_WEBHOOK_SECRET_TEST");
-
-export const runtime = "nodejs";
+function toInt(value: string | undefined): number {
+  const parsed = Number(value ?? "");
+  return Number.isFinite(parsed) ? parsed : 0;
+}
 
 async function resolveCheckoutSession(
   paymentIntentId: string
@@ -33,56 +34,30 @@ async function resolveCheckoutSession(
   });
 
   const session = sessions.data[0];
-  if (!session?.id) {
-    throw new Error(
-      "Unable to resolve checkout session for paymentIntentId=" + paymentIntentId
-    );
+  if (!session) {
+    throw new Error(`Checkout Session not found for paymentIntentId=${paymentIntentId}`);
   }
+
   return session;
 }
 
-function toInt(value: string | undefined): number {
-  const n = Number(value ?? "");
-  return Number.isFinite(n) ? Math.trunc(n) : 0;
-}
-
-function splitName(fullName: string): { firstName: string; lastName: string } {
-  const trimmed = fullName.trim();
-  if (!trimmed) {
-    return { firstName: "", lastName: "" };
-  }
-
-  const parts = trimmed.split(/\s+/);
-  if (parts.length === 1) {
-    return { firstName: parts[0], lastName: "" };
-  }
-
-  return {
-    firstName: parts[0],
-    lastName: parts.slice(1).join(" "),
-  };
-}
-
 export async function POST(req: Request) {
+  const rawBody = await req.text();
   const signature = req.headers.get("stripe-signature");
-  const body = await req.text();
 
   if (!signature) {
-    console.error("❌ Missing stripe-signature header on tours webhook");
-    return new NextResponse("Missing Stripe signature", { status: 400 });
+    return new NextResponse("Missing stripe-signature header", { status: 400 });
   }
 
   let event: Stripe.Event;
-
   try {
     event = toursStripe.webhooks.constructEvent(
-      body,
+      rawBody,
       signature,
-      toursWebhookSecret
+      getWebhookSecret()
     );
-  } catch (err) {
-    console.error("❌ Tours Stripe constructEvent FAILED");
-    console.error("❌ Error:", err);
+  } catch (error) {
+    console.error("❌ Tours webhook signature verification failed", error);
     return new NextResponse("Invalid signature", { status: 400 });
   }
 
@@ -114,38 +89,60 @@ export async function POST(req: Request) {
     return new NextResponse("Unknown tour product", { status: 400 });
   }
 
-  const octoBookingUuid = metadata.octoBookingUuid?.trim() ?? "";
-  if (!octoBookingUuid) {
-    console.error("❌ Missing octoBookingUuid in payment metadata");
-    return new NextResponse("Missing octoBookingUuid", { status: 500 });
-  }
-
   const customerName = metadata.customerName ?? "";
 
-  let octoConfirm;
-  try {
-    octoConfirm = await confirmOctoBooking({
-      bookingUuid: octoBookingUuid,
-      fullName: customerName,
-      emailAddress: metadata.customerEmail ?? "",
-      phoneNumber: metadata.customerPhone ?? "",
-      country: "EE",
-    });
-  } catch (error) {
-    console.error("❌ Failed to confirm OCTO booking", error);
-    return new NextResponse("Failed to confirm OCTO booking", { status: 500 });
-  }
+  let octoData:
+    | {
+        bookingUuid?: string;
+        availabilityId?: string;
+        status?: string;
+        confirmedAt?: string;
+        voucherDeliveryValue?: string;
+        holdExpiresAt?: string;
+      }
+    | undefined;
 
-  if (octoConfirm.status !== "CONFIRMED") {
-    console.error(
-      "❌ OCTO booking did not confirm",
-      JSON.stringify({
-        paymentIntentId: intent.id,
-        octoBookingUuid,
-        octoStatus: octoConfirm.status,
-      })
-    );
-    return new NextResponse("OCTO booking not confirmed", { status: 500 });
+  if (product.availabilityMode === "octo") {
+    const octoBookingUuid = metadata.octoBookingUuid?.trim() ?? "";
+    if (!octoBookingUuid) {
+      console.error("❌ Missing octoBookingUuid in payment metadata");
+      return new NextResponse("Missing octoBookingUuid", { status: 500 });
+    }
+
+    let octoConfirm;
+    try {
+      octoConfirm = await confirmOctoBooking({
+        bookingUuid: octoBookingUuid,
+        fullName: customerName,
+        emailAddress: metadata.customerEmail ?? "",
+        phoneNumber: metadata.customerPhone ?? "",
+        country: "EE",
+      });
+    } catch (error) {
+      console.error("❌ Failed to confirm OCTO booking", error);
+      return new NextResponse("Failed to confirm OCTO booking", { status: 500 });
+    }
+
+    if (octoConfirm.status !== "CONFIRMED") {
+      console.error(
+        "❌ OCTO booking did not confirm",
+        JSON.stringify({
+          paymentIntentId: intent.id,
+          octoBookingUuid,
+          octoStatus: octoConfirm.status,
+        })
+      );
+      return new NextResponse("OCTO booking not confirmed", { status: 500 });
+    }
+
+    octoData = {
+      bookingUuid: octoBookingUuid,
+      availabilityId: metadata.octoAvailabilityId ?? "",
+      status: octoConfirm.status,
+      confirmedAt: octoConfirm.utcConfirmedAt ?? "",
+      voucherDeliveryValue: octoConfirm.voucherDeliveryValue ?? "",
+      holdExpiresAt: metadata.octoHoldExpiresAt ?? "",
+    };
   }
 
   const existingBooking = await getTourBookingByPaymentIntentId(intent.id);
@@ -173,88 +170,35 @@ export async function POST(req: Request) {
       paymentIntentId: intent.id,
       checkoutSessionId: session.id,
     },
-    paidAt: existingBooking?.paidAt ?? new Date().toISOString(),
+    octo: octoData,
+    paidAt: new Date().toISOString(),
     confirmationEmailsSentAt: existingBooking?.confirmationEmailsSentAt,
   };
 
   try {
     await upsertTourBookingByPaymentIntentId(intent.id, bookingPayload);
   } catch (error) {
-    console.error("❌ Failed to store tour booking", error);
-    return new NextResponse("Failed to store tour booking", { status: 500 });
+    console.error("❌ Failed to persist tour booking", error);
+    return new NextResponse("Failed to persist tour booking", { status: 500 });
   }
-
-  const bookingForEmail: TourBooking = {
-    id: existingBooking?.id ?? intent.id,
-    createdAt: existingBooking?.createdAt ?? new Date().toISOString(),
-    ...bookingPayload,
-  };
 
   if (!existingBooking?.confirmationEmailsSentAt) {
-    const emailResult = await sendTourBookingEmails(bookingForEmail);
+    try {
+      await sendTourBookingEmails({
+        ...bookingPayload,
+        id: intent.id,
+        createdAt: existingBooking?.createdAt ?? new Date().toISOString(),
+      });
 
-    if (emailResult.success) {
-      const sentAt = new Date().toISOString();
-
-      try {
-        await markTourBookingConfirmationEmailsSent(intent.id, sentAt);
-      } catch (error) {
-        console.error("❌ Failed to mark confirmation emails as sent", error);
-        return new NextResponse("Failed to mark confirmation emails as sent", {
-          status: 500,
-        });
-      }
-
-      console.log(
-        "✅ TOURS_BOOKING_EMAILS_SENT",
-        JSON.stringify({
-          paymentIntentId: intent.id,
-          customerEmail: bookingPayload.customer.email,
-          sentAt,
-        })
-      );
-    } else {
-      console.error(
-        "❌ TOURS_BOOKING_EMAILS_FAILED",
-        JSON.stringify({
-          paymentIntentId: intent.id,
-          message: emailResult.message,
-        })
-      );
+      await upsertTourBookingByPaymentIntentId(intent.id, {
+        ...bookingPayload,
+        confirmationEmailsSentAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("❌ Failed to send tour booking confirmation emails", error);
+      return new NextResponse("Failed to send confirmation emails", { status: 500 });
     }
-  } else {
-    console.log(
-      "ℹ️ TOURS_BOOKING_EMAILS_SKIPPED_ALREADY_SENT",
-      JSON.stringify({
-        paymentIntentId: intent.id,
-        confirmationEmailsSentAt: existingBooking.confirmationEmailsSentAt,
-      })
-    );
   }
 
-  console.log(
-    "✅ TOURS_BOOKING_CONFIRMED_IN_OCTO",
-    JSON.stringify({
-      paymentIntentId: intent.id,
-      octoBookingUuid,
-      octoConfirmedAt: octoConfirm.utcConfirmedAt,
-      voucherDeliveryValue: octoConfirm.voucherDeliveryValue,
-    })
-  );
-
-  console.log(
-    "✅ TOURS_BOOKING_STORED",
-    JSON.stringify({
-      paymentIntentId: intent.id,
-      checkoutSessionId: session.id,
-      productId: bookingPayload.productId,
-      date: bookingPayload.date,
-      time: bookingPayload.time,
-      totalGuests: bookingPayload.totalGuests,
-      amountCents: bookingPayload.amountCents,
-      customerEmail: bookingPayload.customer.email,
-    })
-  );
-
-  return NextResponse.json({ received: true, toursBookingStored: true });
+  return NextResponse.json({ received: true, stored: true });
 }

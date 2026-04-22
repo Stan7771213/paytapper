@@ -5,9 +5,9 @@ import { getTourProductById } from "@/lib/tours/config";
 import { createOctoHold } from "@/lib/tours/octo";
 import { toursStripe } from "@/lib/tours/stripe";
 import {
-  ALLOWED_SLOT_TIMES,
   BOOKING_CUTOFF_MINUTES,
   isValidDateString,
+  isValidSlotTime,
 } from "@/lib/tours/validation";
 
 export const runtime = "nodejs";
@@ -61,6 +61,65 @@ function isValidEmail(value: string): boolean {
 
 function isValidPhone(value: string): boolean {
   return /^[0-9\s\-()]{5,20}$/.test(value);
+}
+
+function resolveCheckoutPricing(params: {
+  pricingMode: "perPayableGuest" | "privateTiered";
+  adults: number;
+  children: number;
+  privatePriceTiers?: Array<{
+    minGuests: number;
+    maxGuests: number;
+    amountCents: number;
+    label: string;
+  }>;
+}): {
+  freeChildren: number;
+  extraPaidChildren: number;
+  payableGuests: number;
+  totalGuests: number;
+  amountCents: number;
+  unitAmountCents: number;
+  quantity: number;
+  description: string;
+} {
+  const totalGuests = params.adults + params.children;
+
+  if (params.pricingMode === "privateTiered") {
+    const tier = params.privatePriceTiers?.find(
+      (item) => totalGuests >= item.minGuests && totalGuests <= item.maxGuests
+    );
+
+    if (!tier) {
+      throw new Error("No private tour price tier matches the selected group size");
+    }
+
+    return {
+      freeChildren: 0,
+      extraPaidChildren: 0,
+      payableGuests: totalGuests,
+      totalGuests,
+      amountCents: tier.amountCents,
+      unitAmountCents: tier.amountCents,
+      quantity: 1,
+      description: `Private group booking for ${totalGuests} guest(s). ${tier.label}.`,
+    };
+  }
+
+  const freeChildren = Math.min(params.children, params.adults);
+  const extraPaidChildren = Math.max(params.children - params.adults, 0);
+  const payableGuests = params.adults + extraPaidChildren;
+
+  return {
+    freeChildren,
+    extraPaidChildren,
+    payableGuests,
+    totalGuests,
+    amountCents: payableGuests * 3500,
+    unitAmountCents: 3500,
+    quantity: payableGuests,
+    description: `Adults: ${params.adults}, children under 12: ${params.children}, free children covered: ${freeChildren}, extra paid children: ${extraPaidChildren}.`,
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -120,20 +179,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Valid date is required" }, { status: 400 });
     }
 
-    if (!time || !ALLOWED_SLOT_TIMES.includes(time as (typeof ALLOWED_SLOT_TIMES)[number])) {
+    if (!time || !isValidSlotTime(time) || !product.slotTimes.includes(time)) {
       return NextResponse.json({ error: "Valid time is required" }, { status: 400 });
     }
 
     const adults = body.adults;
     const children = body.children;
-    const totalGuests = adults + children;
-    const freeChildren = Math.min(children, adults);
-    const extraPaidChildren = Math.max(children - adults, 0);
-    const payableGuests = adults + extraPaidChildren;
 
-    if (totalGuests <= 0) {
+    const pricing = resolveCheckoutPricing({
+      pricingMode: product.pricingMode,
+      adults,
+      children,
+      privatePriceTiers: product.privatePriceTiers,
+    });
+
+    if (pricing.totalGuests <= 0) {
       return NextResponse.json(
         { error: "At least one guest is required" },
+        { status: 400 }
+      );
+    }
+
+    if (pricing.totalGuests > product.maxGuests) {
+      return NextResponse.json(
+        { error: "Selected group size exceeds this tour limit" },
         { status: 400 }
       );
     }
@@ -149,50 +218,54 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (slot.capacityRemaining < totalGuests) {
+    if (slot.capacityRemaining < 1) {
       return NextResponse.json(
-        {
-          error: "Not enough places left for the selected time",
-          details: {
-            capacityRemaining: slot.capacityRemaining,
-            requestedGuests: totalGuests,
+        { error: "Selected time is no longer available" },
+        { status: 409 }
+      );
+    }
+
+    let hold:
+      | {
+          bookingUuid: string;
+          status: string;
+          utcExpiresAt: string | null;
+          availabilityId: string;
+        }
+      | null = null;
+
+    if (product.availabilityMode === "octo") {
+      if (!slot.octoAvailabilityId) {
+        return NextResponse.json(
+          { error: "Missing OCTO availability id for selected slot" },
+          { status: 500 }
+        );
+      }
+
+      hold = await createOctoHold({
+        productId: product.octoProductId,
+        optionId: product.octoOptionId,
+        availabilityId: slot.octoAvailabilityId,
+        adultUnitId: product.octoAdultUnitId,
+        childUnitId: product.octoChildUnitId,
+        adults,
+        children,
+        expirationMinutes: 15,
+        notes: "Hold created from reseller checkout flow",
+      });
+
+      if (hold.status !== "ON_HOLD") {
+        return NextResponse.json(
+          {
+            error: "Failed to place booking on hold",
+            details: { holdStatus: hold.status },
           },
-        },
-        { status: 409 }
-      );
-    }
-
-    if (!slot.octoAvailabilityId) {
-      return NextResponse.json(
-        { error: "Missing OCTO availability id for selected slot" },
-        { status: 500 }
-      );
-    }
-
-    const hold = await createOctoHold({
-      productId: product.octoProductId,
-      optionId: product.octoOptionId,
-      availabilityId: slot.octoAvailabilityId,
-      adultUnitId: product.octoAdultUnitId,
-      childUnitId: product.octoChildUnitId,
-      adults,
-      children,
-      expirationMinutes: 15,
-      notes: "Hold created from reseller checkout flow",
-    });
-
-    if (hold.status !== "ON_HOLD") {
-      return NextResponse.json(
-        {
-          error: "Failed to place booking on hold",
-          details: { holdStatus: hold.status },
-        },
-        { status: 409 }
-      );
+          { status: 409 }
+        );
+      }
     }
 
     const fullPhone = `${countryCode}${phone}`.replace(/\s+/g, "");
-    const amountCents = payableGuests * product.priceCents;
     const baseUrl = getBaseUrl();
 
     const metadata = {
@@ -205,14 +278,16 @@ export async function POST(req: NextRequest) {
       customerPhone: fullPhone,
       adults: String(adults),
       children: String(children),
-      freeChildren: String(freeChildren),
-      extraPaidChildren: String(extraPaidChildren),
-      payableGuests: String(payableGuests),
-      totalGuests: String(totalGuests),
-      cutoffMinutes: String(BOOKING_CUTOFF_MINUTES),
-      octoBookingUuid: hold.bookingUuid,
-      octoAvailabilityId: hold.availabilityId,
-      octoHoldExpiresAt: hold.utcExpiresAt ?? "",
+      freeChildren: String(pricing.freeChildren),
+      extraPaidChildren: String(pricing.extraPaidChildren),
+      payableGuests: String(pricing.payableGuests),
+      totalGuests: String(pricing.totalGuests),
+      cutoffMinutes: String(slot.cutoffMinutes ?? product.cutoffMinutes ?? BOOKING_CUTOFF_MINUTES),
+      pricingMode: product.pricingMode,
+      availabilityMode: product.availabilityMode,
+      octoBookingUuid: hold?.bookingUuid ?? "",
+      octoAvailabilityId: hold?.availabilityId ?? "",
+      octoHoldExpiresAt: hold?.utcExpiresAt ?? "",
     };
 
     const session = await toursStripe.checkout.sessions.create({
@@ -225,11 +300,11 @@ export async function POST(req: NextRequest) {
             currency: product.currency.toLowerCase(),
             product_data: {
               name: `${product.title} — ${date} ${time}`,
-              description: `Adults: ${adults}, children under 12: ${children}, free children covered: ${freeChildren}, extra paid children: ${extraPaidChildren}.`,
+              description: pricing.description,
             },
-            unit_amount: product.priceCents,
+            unit_amount: pricing.unitAmountCents,
           },
-          quantity: payableGuests,
+          quantity: pricing.quantity,
         },
       ],
       success_url: `${baseUrl}/tours/success?session_id={CHECKOUT_SESSION_ID}`,
@@ -243,22 +318,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       checkoutSessionId: session.id,
       url: session.url,
-      hold: {
-        bookingUuid: hold.bookingUuid,
-        status: hold.status,
-        utcExpiresAt: hold.utcExpiresAt,
-      },
+      hold: hold
+        ? {
+            bookingUuid: hold.bookingUuid,
+            status: hold.status,
+            utcExpiresAt: hold.utcExpiresAt,
+          }
+        : null,
       summary: {
         productId: product.id,
         date,
         time,
         adults,
         children,
-        freeChildren,
-        extraPaidChildren,
-        payableGuests,
-        totalGuests,
-        amountCents,
+        freeChildren: pricing.freeChildren,
+        extraPaidChildren: pricing.extraPaidChildren,
+        payableGuests: pricing.payableGuests,
+        totalGuests: pricing.totalGuests,
+        amountCents: pricing.amountCents,
       },
     });
   } catch (err) {
