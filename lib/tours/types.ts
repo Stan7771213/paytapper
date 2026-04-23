@@ -19,6 +19,7 @@ export type TourProduct = {
   meetingPointTitle: string;
   meetingPointDescription: string;
   meetingImageUrl: string;
+  secondaryMeetingImageUrl?: string;
   currency: 'EUR';
   priceCents: number;
   slotTimes: TourSlotTime[];

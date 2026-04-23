@@ -17,7 +17,8 @@ export const TALLINN_OLD_TOWN_TOUR: TourProductConfig = {
   meetingPointTitle: 'Meeting point',
   meetingPointDescription:
     'At 10 am, 1 pm and 3:30 pm the tour starts from the Town Hall building. The guide will be waiting for you under the clock with a bright sign with the 120 degrees logo in the Town Hall arcade on Town Hall Square.',
-  meetingImageUrl: '/images/tours/tallinn-meeting-point.jpg',
+  meetingImageUrl: '/images/tours/tallinn-meeting-point-wide.jpg',
+  secondaryMeetingImageUrl: '/images/tours/tallinn-meeting-point.jpg',
   currency: 'EUR',
   priceCents: 3500,
   slotTimes: ['10:00', '13:00', '15:30'],
@@ -47,7 +48,8 @@ export const TALLINN_OLD_TOWN_PRIVATE_TOUR: TourProductConfig = {
   meetingPointTitle: 'Meeting point',
   meetingPointDescription:
     'The private tour starts from Town Hall Square. Your guide will meet you near the Town Hall building.',
-  meetingImageUrl: '/images/tours/tallinn-meeting-point.jpg',
+  meetingImageUrl: '/images/tours/tallinn-meeting-point-wide.jpg',
+  secondaryMeetingImageUrl: '/images/tours/tallinn-meeting-point.jpg',
   currency: 'EUR',
   priceCents: 15000,
   slotTimes: ['16:00'],

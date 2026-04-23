@@ -46,15 +46,36 @@ export function TourLanding({ product }: TourLandingProps) {
             </div>
           </div>
 
-          <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/5">
-            <div className="relative aspect-[16/10] w-full bg-neutral-900">
-              <Image
-                src={product.meetingImageUrl}
-                alt={product.meetingPointTitle}
-                fill
-                className="object-cover"
-              />
+          <div className="space-y-4">
+            <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/5">
+              <div className="relative aspect-[16/10] w-full bg-neutral-900">
+                <Image
+                  src={product.meetingImageUrl}
+                  alt={`${product.meetingPointTitle} overview`}
+                  fill
+                  className="object-cover"
+                />
+              </div>
+              <div className="border-t border-white/10 px-4 py-3 text-sm text-gray-300">
+                1. Look for the Town Hall building on Town Hall Square.
+              </div>
             </div>
+
+            {product.secondaryMeetingImageUrl ? (
+              <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/5">
+                <div className="relative aspect-[16/10] w-full bg-neutral-900">
+                  <Image
+                    src={product.secondaryMeetingImageUrl}
+                    alt={`${product.meetingPointTitle} guide`}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+                <div className="border-t border-white/10 px-4 py-3 text-sm text-gray-300">
+                  2. Then look for the guide waiting with the bright 120° sign.
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-sm">
