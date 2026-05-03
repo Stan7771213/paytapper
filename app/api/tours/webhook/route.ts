@@ -13,11 +13,25 @@ import { toursStripe } from "@/lib/tours/stripe";
 export const runtime = "nodejs";
 
 function getWebhookSecret(): string {
-  const value = process.env.TOURS_STRIPE_WEBHOOK_SECRET;
-  if (!value || !value.trim()) {
-    throw new Error("Missing TOURS_STRIPE_WEBHOOK_SECRET");
+  const mode = (process.env.TOURS_STRIPE_MODE ?? "test").trim().toLowerCase();
+
+  if (mode === "live") {
+    const value = process.env.TOURS_STRIPE_WEBHOOK_SECRET_LIVE;
+    if (!value || !value.trim()) {
+      throw new Error("Missing TOURS_STRIPE_WEBHOOK_SECRET_LIVE");
+    }
+    return value.trim();
   }
-  return value.trim();
+
+  if (mode === "test") {
+    const value = process.env.TOURS_STRIPE_WEBHOOK_SECRET_TEST;
+    if (!value || !value.trim()) {
+      throw new Error("Missing TOURS_STRIPE_WEBHOOK_SECRET_TEST");
+    }
+    return value.trim();
+  }
+
+  throw new Error(`Invalid TOURS_STRIPE_MODE: ${mode}`);
 }
 
 function toInt(value: string | undefined): number {
