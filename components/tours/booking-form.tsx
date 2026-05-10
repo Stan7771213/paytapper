@@ -207,8 +207,10 @@ export function BookingForm({ product }: BookingFormProps) {
   }, [slots, form.time]);
 
   const totalGuests = form.adults + form.children;
-  const freeChildren = Math.min(form.children, form.adults);
-  const extraPaidChildren = Math.max(form.children - form.adults, 0);
+  const freeChildren =
+    product.childPolicy === 'freeWithAdult' ? Math.min(form.children, form.adults) : 0;
+  const extraPaidChildren =
+    product.childPolicy === 'freeWithAdult' ? Math.max(form.children - form.adults, 0) : form.children;
   const payableGuests = form.adults + extraPaidChildren;
   const privateTier = resolvePrivateTier(product.privatePriceTiers, totalGuests);
 
@@ -508,7 +510,7 @@ export function BookingForm({ product }: BookingFormProps) {
         </div>
 
         <div>
-          <FieldLabel htmlFor="children">Children under 12</FieldLabel>
+          <FieldLabel htmlFor="children">{product.childPolicy === 'freeWithAdult' ? 'Children under 12' : 'Children'}</FieldLabel>
           <div className="flex items-center overflow-hidden rounded-2xl border border-white/10 bg-black/30">
             <button
               type="button"
@@ -561,13 +563,15 @@ export function BookingForm({ product }: BookingFormProps) {
                 <span className="text-white">{form.adults}</span>
               </div>
               <div className="flex items-center justify-between gap-4">
-                <span>Children under 12</span>
+                <span>{product.childPolicy === 'freeWithAdult' ? 'Children under 12' : 'Children'}</span>
                 <span className="text-white">{form.children}</span>
               </div>
-              <div className="flex items-center justify-between gap-4">
-                <span>Free children covered</span>
-                <span className="text-white">{freeChildren}</span>
-              </div>
+              {product.childPolicy === 'freeWithAdult' ? (
+                <div className="flex items-center justify-between gap-4">
+                  <span>Free children covered</span>
+                  <span className="text-white">{freeChildren}</span>
+                </div>
+              ) : null}
               <div className="flex items-center justify-between gap-4">
                 <span>Payable guests</span>
                 <span className="text-white">{payableGuests}</span>
@@ -591,7 +595,11 @@ export function BookingForm({ product }: BookingFormProps) {
           )}
         </div>
 
-        <p className="mt-4 text-sm leading-6 text-gray-400">{pricingSummary.helperText}</p>
+        <p className="mt-4 text-sm leading-6 text-gray-400">
+          {product.childPolicy === 'freeWithAdult'
+            ? pricingSummary.helperText
+            : 'Every participant is charged as a guest on this tour.'}
+        </p>
       </div>
 
       {submitError ? (

@@ -32,6 +32,7 @@ export type TourProduct = {
   priceNote?: string;
   capacityNote?: string;
   additionalInfoNote?: string;
+  childPolicy?: 'freeWithAdult' | 'chargedAsGuest';
   privatePriceTiers?: TourPriceTier[];
   maxBookingsPerDay?: number;
   maxBookingsPerSlot?: number;

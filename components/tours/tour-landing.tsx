@@ -72,7 +72,9 @@ export function TourLanding({ product }: TourLandingProps) {
                   />
                 </div>
                 <div className="border-t border-white/10 px-4 py-3 text-sm text-gray-300">
-                  2. Then look for the guide waiting with the bright 120° sign.
+                  {product.id === 'tallinn-food-tour'
+                    ? '2. The guide will be waiting with the Food Tour sign at the Town Hall building under the clock.'
+                    : '2. Then look for the guide waiting with the bright 120° sign.'}
                 </div>
               </div>
             ) : null}

@@ -31,6 +31,7 @@ export const TALLINN_OLD_TOWN_TOUR: TourProductConfig = {
   priceNote: '€35 per paying guest',
   capacityNote: 'Children under 12 free with 1 adult per 1 child',
   additionalInfoNote: 'Groups are usually up to 17 people. For larger groups, 2–3 guides are assigned.',
+  childPolicy: 'freeWithAdult',
 
   octoProductId: '70ef96f8-9d54-4beb-80b2-26f0137fbcc7',
   octoOptionId: '6aa3fadd-5281-4f82-a7df-e4e38343f631',
@@ -61,6 +62,7 @@ export const TALLINN_OLD_TOWN_PRIVATE_TOUR: TourProductConfig = {
   badgeText: '120° Private Tour',
   priceNote: '€150 for 1–4 guests · €200 for 5–15 guests',
   capacityNote: 'One private tour per day for now',
+  childPolicy: 'chargedAsGuest',
   privatePriceTiers: [
     {
       minGuests: 1,
@@ -84,9 +86,79 @@ export const TALLINN_OLD_TOWN_PRIVATE_TOUR: TourProductConfig = {
   octoChildUnitId: '',
 };
 
+export const TALLINN_OLD_TOWN_RUSSIAN_TOUR: TourProductConfig = {
+  id: 'tallinn-old-town-russian',
+  slug: 'tallinn-old-town-russian',
+  title: 'Tallinn Old Town Group Walking Tour in Russian',
+  description:
+    'Discover the highlights of Tallinn Old Town on a guided group walking tour in Russian.',
+  durationText: '2 to 2.5 hours',
+  meetingPointTitle: 'Meeting point',
+  meetingPointDescription:
+    'The tour starts from the Town Hall building. The guide will be waiting for you under the clock with a bright 120° sign in the Town Hall arcade on Town Hall Square.',
+  meetingImageUrl: '/images/tours/tallinn-meeting-point-wide.jpg',
+  secondaryMeetingImageUrl: '/images/tours/tallinn-meeting-point.jpg',
+  currency: 'EUR',
+  priceCents: 3500,
+  slotTimes: ['10:00', '13:00', '15:30'],
+  defaultCapacity: 17,
+  maxGuests: 17,
+  cutoffMinutes: 300,
+  availabilityMode: 'local',
+  pricingMode: 'perPayableGuest',
+  badgeText: '120° Russian Group Tour',
+  priceNote: '€35 per paying guest',
+  capacityNote: 'Children under 12 free with 1 adult per 1 child',
+  additionalInfoNote: 'Sales are managed manually. Booking closes 5 hours before the tour.',
+  childPolicy: 'freeWithAdult',
+  maxBookingsPerDay: 999,
+  maxBookingsPerSlot: 17,
+
+  octoProductId: '',
+  octoOptionId: '',
+  octoAdultUnitId: '',
+  octoChildUnitId: '',
+};
+
+export const TALLINN_FOOD_TOUR: TourProductConfig = {
+  id: 'tallinn-food-tour',
+  slug: 'tallinn-food-tour',
+  title: 'Tallinn Food Tour',
+  description:
+    'Discover Tallinn through Estonian food, drinks, and history on a guided 2-hour walking tour that combines the city’s story with its local flavors.',
+  durationText: '2 hours',
+  meetingPointTitle: 'Meeting point',
+  meetingPointDescription:
+    'The guide will be waiting with the Food Tour sign at the Town Hall building under the clock.',
+  meetingImageUrl: '/images/tours/tallinn-meeting-point-wide.jpg',
+  secondaryMeetingImageUrl: '/images/tours/food-tour-meeting-point.jpg',
+  currency: 'EUR',
+  priceCents: 8000,
+  slotTimes: ['15:00'],
+  defaultCapacity: 17,
+  maxGuests: 17,
+  cutoffMinutes: 1080,
+  availabilityMode: 'local',
+  pricingMode: 'perPayableGuest',
+  badgeText: '120° Food Tour',
+  priceNote: '€80 per guest',
+  capacityNote: 'Daily at 15:00',
+  additionalInfoNote: 'Sales are managed manually. Booking closes 18 hours before the tour.',
+  childPolicy: 'chargedAsGuest',
+  maxBookingsPerDay: 999,
+  maxBookingsPerSlot: 17,
+
+  octoProductId: '',
+  octoOptionId: '',
+  octoAdultUnitId: '',
+  octoChildUnitId: '',
+};
+
 const TOUR_PRODUCTS: Record<string, TourProductConfig> = {
   [TALLINN_OLD_TOWN_TOUR.id]: TALLINN_OLD_TOWN_TOUR,
   [TALLINN_OLD_TOWN_PRIVATE_TOUR.id]: TALLINN_OLD_TOWN_PRIVATE_TOUR,
+  [TALLINN_OLD_TOWN_RUSSIAN_TOUR.id]: TALLINN_OLD_TOWN_RUSSIAN_TOUR,
+  [TALLINN_FOOD_TOUR.id]: TALLINN_FOOD_TOUR,
 };
 
 export function getTourProductById(productId: string): TourProductConfig | null {
